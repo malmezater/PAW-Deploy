@@ -1,22 +1,22 @@
 $item = "$PSScriptRoot\$SourceFiles"
 $SourceFiles = "Remove-VMDeploy"
-$RejlersIT = "C:\ProgramData\RejlersIT"
-$RejlersITLogs = "$RejlersIT\logs"
-$PowershellLogPath = "$RejlersITLogs\$SourceFiles.log"
-$CheckItem = New-Item -Path "$RejlersIT\Check\Remove-VMDeploy.txt" -Force
+$DeployIT = "C:\ProgramData\DeployIT"
+$DeployITLogs = "$DeployIT\logs"
+$PowershellLogPath = "$DeployITLogs\$SourceFiles.log"
+$CheckItem = New-Item -Path "$DeployIT\Check\Remove-VMDeploy.txt" -Force
 
 Start-Transcript -Path $PowershellLogPath -Force -Append
 
 ##*===============================================
-##* RejlersIT LOG AND DOWNLOAD DIRECTORY
+##* DeployIT LOG AND DOWNLOAD DIRECTORY
 ##*===============================================
 
-if(!(Test-Path $RejlersITLogs)){
-    write-host "Logpath: $RejlersITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $RejlersITLogs -Force
+if(!(Test-Path $DeployITLogs)){
+    write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
+    New-Item -ItemType Directory $DeployITLogs -Force
 }
 else{
-    write-host "Logpath: $RejlersITLogs already exist. No need to create directory."
+    write-host "Logpath: $DeployITLogs already exist. No need to create directory."
 }
 
 ##*===============================================
@@ -26,7 +26,7 @@ else{
 write-host " "
 write-host " Starting the script to remove VM's."
 
-Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\RejlersIT\VMDeploy\VMRemovewUI.ps1
+Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\DeployIT\VMDeploy\VMRemovewUI.ps1
 
 ##*===============================================
 ##* Remove Check file

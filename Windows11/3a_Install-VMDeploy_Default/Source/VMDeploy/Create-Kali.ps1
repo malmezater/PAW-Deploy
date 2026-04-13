@@ -61,13 +61,13 @@ if (-not $Name) {
 ##* Kali VM Settings
 ##*===============================================
 $SourceFiles = "Create-Kali"
-$RejlersIT = "C:\ProgramData\RejlersIT"
-$RejlersITLogs = "$RejlersIT\logs"
-$PowershellLogPath = "$RejlersITLogs\$SourceFiles.log"
-$HashID = (get-filehash -Path $env:ProgramData\RejlersIT\VMDeploy\Images\Kali.vhdx -Algorithm SHA256).Hash
-$CheckItem = New-Item -Path "$RejlersIT\Check\$SourceFiles.txt" -Force
-$vhdxtemp = "C:\ProgramData\RejlersIT\VMDeploy\Images\Kali.vhdx"
-$vhdx = "C:\ProgramData\RejlersIT\VMDeploy\VMs\$Name\$Name.vhdx"
+$DeployIT = "C:\ProgramData\DeployIT"
+$DeployITLogs = "$DeployIT\logs"
+$PowershellLogPath = "$DeployITLogs\$SourceFiles.log"
+$HashID = (get-filehash -Path $env:ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx -Algorithm SHA256).Hash
+$CheckItem = New-Item -Path "$DeployIT\Check\$SourceFiles.txt" -Force
+$vhdxtemp = "C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx"
+$vhdx = "C:\ProgramData\DeployIT\VMDeploy\VMs\$Name\$Name.vhdx"
 
 $Description = "Kali Rolling (2025.1a) x64 2025-03-07
 
@@ -82,14 +82,14 @@ Password: kali
 Start-Transcript -Path $PowershellLogPath -Force -Append
 
 ##*===============================================
-##* RejlersIT LOG AND DOWNLOAD DIRECTORY
+##* DeployIT LOG AND DOWNLOAD DIRECTORY
 ##*===============================================
 
-if (!(Test-Path $RejlersITLogs)) {
-    Write-Host "Logpath: $RejlersITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $RejlersITLogs -Force
+if (!(Test-Path $DeployITLogs)) {
+    Write-Host "Logpath: $DeployITLogs doesn't exist. Creating directory."
+    New-Item -ItemType Directory $DeployITLogs -Force
 } else {
-    Write-Host "Logpath: $RejlersITLogs already exists. No need to create directory."
+    Write-Host "Logpath: $DeployITLogs already exists. No need to create directory."
 }
 
 ##*===============================================
@@ -98,7 +98,7 @@ if (!(Test-Path $RejlersITLogs)) {
 
 if ($HashID -eq "995ADFDD19C64E5BEE1871B24DB5768A0947097FDE3C500BD749843A70EBC41B") {
     Write-Host "The hash ID matches the expected value. Proceeding with the script."
-    Powershell.exe -ExecutionPolicy Bypass -File "$env:ProgramData\RejlersIT\VMDeploy\Create-Kali.ps1"
+    Powershell.exe -ExecutionPolicy Bypass -File "$env:ProgramData\DeployIT\VMDeploy\Create-Kali.ps1"
 } else {
     Write-Host "The hash ID does not match the expected value. Please check the image file."
     exit

@@ -1,7 +1,7 @@
 <Settings>
  <CustomerData>
-  <OrgName>Rejlers</OrgName>
-  <FullName>Rejlers Sverige AB</FullName>
+  <OrgName>COMPANY NAME</OrgName>
+  <FullName>FULL COMPANY NAME</FullName>
  </CustomerData>
  <HyperV>
   <VMSwitch>UplinkSwitch</VMSwitch>
@@ -16,7 +16,7 @@
 <NoCPU>2</NoCPU>
 <DynamicMem>True</DynamicMem>
 <DiskMode>Attached</DiskMode>
-<VHDFile>C:\ProgramData\RejlersIT\VMDeploy\Images\Windows11.vhdx</VHDFile>
+<VHDFile>C:\ProgramData\DeployIT\VMDeploy\Images\Windows11.vhdx</VHDFile>
 <TimeZoneName>W. Europe Standard Time</TimeZoneName>
 <DomainOrWorkGroup>WorkGroup</DomainOrWorkGroup>
 <DNSDomain>NA</DNSDomain>
@@ -34,7 +34,7 @@
 <NoCPU>2</NoCPU>
 <DynamicMem>True</DynamicMem>
 <DiskMode>Attached</DiskMode>
-<VHDFile>C:\ProgramData\RejlersIT\VMDeploy\Images\Windows11.vhdx</VHDFile>
+<VHDFile>C:\ProgramData\DeployIT\VMDeploy\Images\Windows11.vhdx</VHDFile>
 <TimeZoneName>W. Europe Standard Time</TimeZoneName>
 <DomainOrWorkGroup>WorkGroup</DomainOrWorkGroup>
 <DNSDomain>NA</DNSDomain>
@@ -53,7 +53,7 @@
 <NoCPU>2</NoCPU>
 <DynamicMem>True</DynamicMem>
 <DiskMode>Attached</DiskMode>
-<VHDFile>C:\ProgramData\RejlersIT\VMDeploy\Images\Kali.vhdx</VHDFile>
+<VHDFile>C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx</VHDFile>
 <TimeZoneName>W. Europe Standard Time</TimeZoneName>
 <NameSuffix>Kali-</NameSuffix>
 <VLanID>0</VLanID>

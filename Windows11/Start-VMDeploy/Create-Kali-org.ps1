@@ -3,26 +3,26 @@
 
 $item = "$PSScriptRoot\$SourceFiles"
 $SourceFiles = "Run-VMDeploy"
-$RejlersIT = "C:\ProgramData\RejlersIT"
-$RejlersITLogs = "$RejlersIT\logs"
-$PowershellLogPath = "$RejlersITLogs\$SourceFiles.log"
-$HashID = (get-filehash -Path $env:ProgramData\RejlersIT\VMDeploy\Images\Windows11.vhdx -Algorithm SHA256).Hash
-$CheckItem = New-Item -Path "$RejlersIT\Check\Run-VMDeploy.txt" -Force
-$vhdxtemp = "C:\ProgramData\RejlersIT\VMDeploy\Images\Kali.vhdx"
+$DeployIT = "C:\ProgramData\DeployIT"
+$DeployITLogs = "$DeployIT\logs"
+$PowershellLogPath = "$DeployITLogs\$SourceFiles.log"
+$HashID = (get-filehash -Path $env:ProgramData\DeployIT\VMDeploy\Images\Windows11.vhdx -Algorithm SHA256).Hash
+$CheckItem = New-Item -Path "$DeployIT\Check\Run-VMDeploy.txt" -Force
+$vhdxtemp = "C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx"
 
 
 Start-Transcript -Path $PowershellLogPath -Force -Append
 
 ##*===============================================
-##* RejlersIT LOG AND DOWNLOAD DIRECTORY
+##* DeployIT LOG AND DOWNLOAD DIRECTORY
 ##*===============================================
 
-    if(!(Test-Path $RejlersITLogs)){
-        write-host "Logpath: $RejlersITLogs doesn't exist. Creating directory."
-        New-Item -ItemType Directory $RejlersITLogs -Force
+    if(!(Test-Path $DeployITLogs)){
+        write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
+        New-Item -ItemType Directory $DeployITLogs -Force
     }
     else{
-        write-host "Logpath: $RejlersITLogs already exist. No need to create directory."
+        write-host "Logpath: $DeployITLogs already exist. No need to create directory."
     }
 
 
@@ -33,7 +33,7 @@ Start-Transcript -Path $PowershellLogPath -Force -Append
     if ($HashID -eq "F20B5343ED8BA5CEA49F91CFAD8D1BA27EEAB9ADB06FC248AB068BB600AAD8AA") {
 
         Write-Host "The hash ID matches the expected value. Proceeding with the script."
-        Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\RejlersIT\VMDeploy\VMDeploywUI.ps1
+        Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\DeployIT\VMDeploy\VMDeploywUI.ps1
 
     } 
         
@@ -62,7 +62,7 @@ Start-Transcript -Path $PowershellLogPath -Force -Append
     ##*===============================================
     ##* Installation
     ##*===============================================
-    $vhdx = "C:\ProgramData\RejlersIT\VMDeploy\VMs\$VM\$VM.vhdx"
+    $vhdx = "C:\ProgramData\DeployIT\VMDeploy\VMs\$VM\$VM.vhdx"
     $Description = "Kali Rolling (2025.1a) x64 2025-03-07
 
     - - - - - - - - - - - - - - - - - -

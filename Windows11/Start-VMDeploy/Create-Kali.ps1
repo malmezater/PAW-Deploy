@@ -61,12 +61,12 @@ if (-not $Name) {
 ##* Kali VM Settings
 ##*===============================================
 $SourceFiles = "Create-Kali"
-$RejlersIT = "C:\ProgramData\RejlersIT"
-$RejlersITLogs = "$RejlersIT\logs"
-$PowershellLogPath = "$RejlersITLogs\$SourceFiles.log"
-$vhdxtemp = Get-childitem -Path $env:ProgramData\RejlersIT\VMDeploy\Images\Kali.vhdx
-$CheckItem = New-Item -Path "$RejlersIT\Check\$SourceFiles.txt" -Force
-$vhdx = "C:\ProgramData\RejlersIT\VMDeploy\VMs\$Name\$Name.vhdx"
+$DeployIT = "C:\ProgramData\DeployIT"
+$DeployITLogs = "$DeployIT\logs"
+$PowershellLogPath = "$DeployITLogs\$SourceFiles.log"
+$vhdxtemp = Get-childitem -Path $env:ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx
+$CheckItem = New-Item -Path "$DeployIT\Check\$SourceFiles.txt" -Force
+$vhdx = "C:\ProgramData\DeployIT\VMDeploy\VMs\$Name\$Name.vhdx"
 
 $Description = "Kali Rolling (2025.1a) x64 2025-03-07
 - - - - - - - - - - - - - - - - - - 
@@ -79,14 +79,14 @@ Password: kali
 Start-Transcript -Path $PowershellLogPath -Force -Append
 
 ##*===============================================
-##* RejlersIT LOG AND DOWNLOAD DIRECTORY
+##* DeployIT LOG AND DOWNLOAD DIRECTORY
 ##*===============================================
 
-if (!(Test-Path $RejlersITLogs)) {
-    Write-Host "Logpath: $RejlersITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $RejlersITLogs -Force
+if (!(Test-Path $DeployITLogs)) {
+    Write-Host "Logpath: $DeployITLogs doesn't exist. Creating directory."
+    New-Item -ItemType Directory $DeployITLogs -Force
 } else {
-    Write-Host "Logpath: $RejlersITLogs already exists. No need to create directory."
+    Write-Host "Logpath: $DeployITLogs already exists. No need to create directory."
 }
 
 ##*===============================================

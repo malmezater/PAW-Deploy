@@ -42,37 +42,37 @@ Param(
 
 $SourceFiles = "Configure-VMDeploy"
 $ApplicationName = "VMDeploy"
-$RegistryPath = "HKLM:\SOFTWARE\RejlersIT"
+$RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
 $ApplicationKeyPath = "$RegistryApplicationName"
-$RejlersIT = "C:\ProgramData\RejlersIT"
-$RejlersITLogs = "$RejlersIT\logs"
-$RejlersITDownload = "$RejlersIT\Download"
-$PowershellLogPath = "$RejlersITLogs\$SourceFiles-PS.log"
+$DeployIT = "C:\ProgramData\DeployIT"
+$DeployITLogs = "$DeployIT\logs"
+$DeployITDownload = "$DeployIT\Download"
+$PowershellLogPath = "$DeployITLogs\$SourceFiles-PS.log"
 
 Start-Transcript -Path $PowershellLogPath -Force -Append
 
 ##*===============================================
-##* RejlersIT LOG AND DOWNLOAD DIRECTORY
+##* DeployIT LOG AND DOWNLOAD DIRECTORY
 ##*===============================================
 
-if(!(Test-Path $RejlersITLogs)){
-    write-host "Logpath: $RejlersITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $RejlersITLogs -Force
+if(!(Test-Path $DeployITLogs)){
+    write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
+    New-Item -ItemType Directory $DeployITLogs -Force
     }
     else{
-    write-host "Logpath: $RejlersITLogs already exist. No need to create directory."
+    write-host "Logpath: $DeployITLogs already exist. No need to create directory."
     }
 
-if(!(Test-Path $RejlersITDownload)){
-    write-host "DownloadPath: $RejlersITDownload doesn't exist. Creating directory."
-    New-Item -ItemType Directory $RejlersITDownload -Force
+if(!(Test-Path $DeployITDownload)){
+    write-host "DownloadPath: $DeployITDownload doesn't exist. Creating directory."
+    New-Item -ItemType Directory $DeployITDownload -Force
     }
     else{
-    write-host "DownloadPath: $RejlersITDownload already exist. No need to create directory."
+    write-host "DownloadPath: $DeployITDownload already exist. No need to create directory."
     }
 
-    # Check if the RejlersIT key exists, if not, create it
+    # Check if the DeployIT key exists, if not, create it
 if (-not (Test-Path $RegistryApplicationName)) 
     {
         Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
@@ -123,13 +123,13 @@ Write-Log "$ScriptName - Model: $TSModel"
 #Custom Code Starts--------------------------------------
 
 
-& Robocopy "$ScriptDir\Source" "$env:ProgramData\RejlersIT\" /e /s 
+& Robocopy "$ScriptDir\Source" "$env:ProgramData\DeployIT\" /e /s 
 
 ##*===============================================
 ##* Check if installation file exist
 ##*===============================================
 
-if (Get-ChildItem -Path "$env:ProgramData\RejlersIT\VMDeploy\Config.xml" -ErrorAction SilentlyContinue) {
+if (Get-ChildItem -Path "$env:ProgramData\DeployIT\VMDeploy\Config.xml" -ErrorAction SilentlyContinue) {
     # Create or update the registry value
     try {
         New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null

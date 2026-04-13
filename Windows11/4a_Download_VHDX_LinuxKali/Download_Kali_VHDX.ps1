@@ -1,36 +1,36 @@
 ﻿$SourceFiles = "Kali-Template"
 $ApplicationName = "VMDeploy"
-$RegistryPath = "HKLM:\SOFTWARE\RejlersIT"
+$RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
 $ApplicationKeyPath = "$RegistryApplicationName"
-$RejlersIT = "C:\ProgramData\RejlersIT"
-$RejlersITLogs = "$RejlersIT\logs"
-$RejlersITDownload = "$RejlersIT\Download"
-$PowershellLogPath = "$RejlersITLogs\$SourceFiles-PS.log"
+$DeployIT = "C:\ProgramData\DeployIT"
+$DeployITLogs = "$DeployIT\logs"
+$DeployITDownload = "$DeployIT\Download"
+$PowershellLogPath = "$DeployITLogs\$SourceFiles-PS.log"
 
 Start-Transcript -Path $PowershellLogPath -Force -Append
 
 ##*===============================================
-##* RejlersIT LOG AND DOWNLOAD DIRECTORY
+##* DeployIT LOG AND DOWNLOAD DIRECTORY
 ##*===============================================
 
-if(!(Test-Path $RejlersITLogs)){
-    write-host "Logpath: $RejlersITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $RejlersITLogs -Force
+if(!(Test-Path $DeployITLogs)){
+    write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
+    New-Item -ItemType Directory $DeployITLogs -Force
     }
     else{
-    write-host "Logpath: $RejlersITLogs already exist. No need to create directory."
+    write-host "Logpath: $DeployITLogs already exist. No need to create directory."
     }
 
-if(!(Test-Path $RejlersITDownload)){
-    write-host "DownloadPath: $RejlersITDownload doesn't exist. Creating directory."
-    New-Item -ItemType Directory $RejlersITDownload -Force
+if(!(Test-Path $DeployITDownload)){
+    write-host "DownloadPath: $DeployITDownload doesn't exist. Creating directory."
+    New-Item -ItemType Directory $DeployITDownload -Force
     }
     else{
-    write-host "DownloadPath: $RejlersITDownload already exist. No need to create directory."
+    write-host "DownloadPath: $DeployITDownload already exist. No need to create directory."
     }
 
-    # Check if the RejlersIT key exists, if not, create it
+    # Check if the DeployIT key exists, if not, create it
 if (-not (Test-Path $RegistryApplicationName)) 
     {
         Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
@@ -46,15 +46,15 @@ if (-not (Test-Path $RegistryApplicationName))
 
 try
 {
-    if(!(test-path C:\ProgramData\RejlersIT\VMDeploy\Images))
+    if(!(test-path C:\ProgramData\DeployIT\VMDeploy\Images))
     {
-	    New-Item C:\ProgramData\RejlersIT\VMDeploy\Images -ItemType Directory -Force
+	    New-Item C:\ProgramData\DeployIT\VMDeploy\Images -ItemType Directory -Force
     }
 
     else
     {
-        Write-Host "Directory C:\ProgramData\RejlersIT\VMDeploy\Images already exists."
-        $HashID = (get-filehash -Path C:\ProgramData\RejlersIT\VMDeploy\Images\Kali.vhdx -Algorithm SHA256).Hash
+        Write-Host "Directory C:\ProgramData\DeployIT\VMDeploy\Images already exists."
+        $HashID = (get-filehash -Path C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx -Algorithm SHA256).Hash
     }
 
     if ($HashID -eq "995ADFDD19C64E5BEE1871B24DB5768A0947097FDE3C500BD749843A70EBC41B") {
@@ -66,7 +66,7 @@ try
     else {
         
         Write-Host "VHDX file not found. Downloading the VHDX file."
-        Start-BitsTransfer -Source https://it.rejlers.se/powershell/VMDeploy/Images/Kali.vhdx -Destination C:\ProgramData\RejlersIT\VMDeploy\Images\Kali.vhdx
+        Start-BitsTransfer -Source https://it.Deploy.se/powershell/VMDeploy/Images/Kali.vhdx -Destination C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx
 
     }
 
@@ -80,7 +80,7 @@ catch
 #* Check if installation file exist
 #*===============================================
 
-if  (Get-ChildItem -Path "C:\ProgramData\RejlersIT\VMDeploy\Images\Kali.vhdx" -ErrorAction SilentlyContinue) {
+if  (Get-ChildItem -Path "C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx" -ErrorAction SilentlyContinue) {
     
     try {
         New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null

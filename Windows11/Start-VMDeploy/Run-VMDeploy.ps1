@@ -1,24 +1,24 @@
 
 $item = "$PSScriptRoot\$SourceFiles"
 $SourceFiles = "Run-VMDeploy"
-$RejlersIT = "C:\ProgramData\RejlersIT"
-$RejlersITLogs = "$RejlersIT\logs"
-$PowershellLogPath = "$RejlersITLogs\$SourceFiles.log"
-$vhdxtemp = Get-childitem -Path $env:ProgramData\RejlersIT\VMDeploy\Images\Windows11.vhdx
-$CheckItem = New-Item -Path "$RejlersIT\Check\Run-VMDeploy.txt" -Force
+$DeployIT = "C:\ProgramData\DeployIT"
+$DeployITLogs = "$DeployIT\logs"
+$PowershellLogPath = "$DeployITLogs\$SourceFiles.log"
+$vhdxtemp = Get-childitem -Path $env:ProgramData\DeployIT\VMDeploy\Images\Windows11.vhdx
+$CheckItem = New-Item -Path "$DeployIT\Check\Run-VMDeploy.txt" -Force
 
 Start-Transcript -Path $PowershellLogPath -Force -Append
 
 ##*===============================================
-##* RejlersIT LOG AND DOWNLOAD DIRECTORY
+##* DeployIT LOG AND DOWNLOAD DIRECTORY
 ##*===============================================
 
-    if(!(Test-Path $RejlersITLogs)){
-        write-host "Logpath: $RejlersITLogs doesn't exist. Creating directory."
-        New-Item -ItemType Directory $RejlersITLogs -Force
+    if(!(Test-Path $DeployITLogs)){
+        write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
+        New-Item -ItemType Directory $DeployITLogs -Force
     }
     else{
-        write-host "Logpath: $RejlersITLogs already exist. No need to create directory."
+        write-host "Logpath: $DeployITLogs already exist. No need to create directory."
     }
 
 
@@ -29,7 +29,7 @@ Start-Transcript -Path $PowershellLogPath -Force -Append
     if ($vhdxtemp) {
 
         Write-Host "Windows 11 template is downloaded, proceeding with the script."
-        Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\RejlersIT\VMDeploy\VMDeploywUI.ps1
+        Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\DeployIT\VMDeploy\VMDeploywUI.ps1
 
     } 
         
