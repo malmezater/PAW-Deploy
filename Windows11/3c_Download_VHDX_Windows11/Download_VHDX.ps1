@@ -1,5 +1,5 @@
 ﻿$SourceFiles = "VHDX-Template"
-$ApplicationName = "VMDeploy"
+$ApplicationName = "PAWDeploy"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
 $ApplicationKeyPath = "$RegistryApplicationName"
@@ -46,15 +46,15 @@ if (-not (Test-Path $RegistryApplicationName))
 
 try
 {
-    if(!(test-path C:\ProgramData\DeployIT\VMDeploy\Images))
+    if(!(test-path C:\ProgramData\DeployIT\PAWDeploy\Images))
     {
-	    New-Item C:\ProgramData\DeployIT\VMDeploy\Images -ItemType Directory -Force
+	    New-Item C:\ProgramData\DeployIT\PAWDeploy\Images -ItemType Directory -Force
     }
 
     else
     {
-        Write-Host "Directory C:\ProgramData\DeployIT\VMDeploy\Images already exists."
-        $HashID = (get-filehash -Path C:\ProgramData\DeployIT\VMDeploy\Images\Windows11.vhdx -Algorithm SHA256).Hash
+        Write-Host "Directory C:\ProgramData\DeployIT\PAWDeploy\Images already exists."
+        $HashID = (get-filehash -Path C:\ProgramData\DeployIT\PAWDeploy\Images\Windows11.vhdx -Algorithm SHA256).Hash
     }
 
     if ($HashID -eq "F20B5343ED8BA5CEA49F91CFAD8D1BA27EEAB9ADB06FC248AB068BB600AAD8AA") {
@@ -66,7 +66,7 @@ try
     else {
         
         Write-Host "VHDX file not found. Downloading the VHDX file."
-        Start-BitsTransfer -Source https://it.Deploy.se/powershell/VMDeploy/Images/Windows11.vhdx -Destination C:\ProgramData\DeployIT\VMDeploy\Images\Windows11.vhdx
+        Start-BitsTransfer -Source https://it.Deploy.se/powershell/PAWDeploy/Images/Windows11.vhdx -Destination C:\ProgramData\DeployIT\PAWDeploy\Images\Windows11.vhdx
 
     }
 
@@ -80,7 +80,7 @@ catch
 #* Check if installation file exist
 #*===============================================
 
-if  (Get-ChildItem -Path "C:\ProgramData\DeployIT\VMDeploy\Images\Windows11.vhdx" -ErrorAction SilentlyContinue) {
+if  (Get-ChildItem -Path "C:\ProgramData\DeployIT\PAWDeploy\Images\Windows11.vhdx" -ErrorAction SilentlyContinue) {
     
     try {
         New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null

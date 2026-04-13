@@ -1,5 +1,5 @@
 ﻿$SourceFiles = "HyperV-Admins"
-$ApplicationName = "VMDeploy"
+$ApplicationName = "PAWDeploy"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
 $ApplicationKeyPath = "$RegistryApplicationName"

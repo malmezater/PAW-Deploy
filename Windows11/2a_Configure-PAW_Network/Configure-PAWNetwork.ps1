@@ -1,5 +1,5 @@
 ﻿
-$ApplicationName = "VMDeploy"
+$ApplicationName = "PAWDeploy"
 $SourceFiles = "PawNetwork"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"

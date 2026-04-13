@@ -1,9 +1,9 @@
 $item = "$PSScriptRoot\$SourceFiles"
-$SourceFiles = "Remove-VMDeploy"
+$SourceFiles = "Remove-PAWDeploy"
 $DeployIT = "C:\ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $PowershellLogPath = "$DeployITLogs\$SourceFiles.log"
-$CheckItem = New-Item -Path "$DeployIT\Check\Remove-VMDeploy.txt" -Force
+$CheckItem = New-Item -Path "$DeployIT\Check\Remove-PAWDeploy.txt" -Force
 
 Start-Transcript -Path $PowershellLogPath -Force -Append
 
@@ -26,7 +26,7 @@ else{
 write-host " "
 write-host " Starting the script to remove VM's."
 
-Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\DeployIT\VMDeploy\VMRemovewUI.ps1
+Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\DeployIT\PAWDeploy\VMRemovewUI.ps1
 
 ##*===============================================
 ##* Remove Check file

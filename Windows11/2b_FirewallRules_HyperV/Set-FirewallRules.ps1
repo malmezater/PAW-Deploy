@@ -1,4 +1,4 @@
-$ApplicationName = "VMDeploy"
+$ApplicationName = "PAWDeploy"
 $SourceFiles = "FirewallRules"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"

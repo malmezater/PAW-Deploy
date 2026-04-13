@@ -64,9 +64,9 @@ $SourceFiles = "Create-Kali"
 $DeployIT = "C:\ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $PowershellLogPath = "$DeployITLogs\$SourceFiles.log"
-$vhdxtemp = Get-childitem -Path $env:ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx
+$vhdxtemp = Get-childitem -Path $env:ProgramData\DeployIT\PAWDeploy\Images\Kali.vhdx
 $CheckItem = New-Item -Path "$DeployIT\Check\$SourceFiles.txt" -Force
-$vhdx = "C:\ProgramData\DeployIT\VMDeploy\VMs\$Name\$Name.vhdx"
+$vhdx = "C:\ProgramData\DeployIT\PAWDeploy\VMs\$Name\$Name.vhdx"
 
 $Description = "Kali Rolling (2025.1a) x64 2025-03-07
 - - - - - - - - - - - - - - - - - - 

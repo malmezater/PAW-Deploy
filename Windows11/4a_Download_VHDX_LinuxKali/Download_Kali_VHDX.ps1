@@ -1,5 +1,5 @@
 ﻿$SourceFiles = "Kali-Template"
-$ApplicationName = "VMDeploy"
+$ApplicationName = "PAWDeploy"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
 $ApplicationKeyPath = "$RegistryApplicationName"
@@ -46,15 +46,15 @@ if (-not (Test-Path $RegistryApplicationName))
 
 try
 {
-    if(!(test-path C:\ProgramData\DeployIT\VMDeploy\Images))
+    if(!(test-path C:\ProgramData\DeployIT\PAWDeploy\Images))
     {
-	    New-Item C:\ProgramData\DeployIT\VMDeploy\Images -ItemType Directory -Force
+	    New-Item C:\ProgramData\DeployIT\PAWDeploy\Images -ItemType Directory -Force
     }
 
     else
     {
-        Write-Host "Directory C:\ProgramData\DeployIT\VMDeploy\Images already exists."
-        $HashID = (get-filehash -Path C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx -Algorithm SHA256).Hash
+        Write-Host "Directory C:\ProgramData\DeployIT\PAWDeploy\Images already exists."
+        $HashID = (get-filehash -Path C:\ProgramData\DeployIT\PAWDeploy\Images\Kali.vhdx -Algorithm SHA256).Hash
     }
 
     if ($HashID -eq "995ADFDD19C64E5BEE1871B24DB5768A0947097FDE3C500BD749843A70EBC41B") {
@@ -66,7 +66,7 @@ try
     else {
         
         Write-Host "VHDX file not found. Downloading the VHDX file."
-        Start-BitsTransfer -Source https://it.Deploy.se/powershell/VMDeploy/Images/Kali.vhdx -Destination C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx
+        Start-BitsTransfer -Source https://it.Deploy.se/powershell/PAWDeploy/Images/Kali.vhdx -Destination C:\ProgramData\DeployIT\PAWDeploy\Images\Kali.vhdx
 
     }
 
@@ -80,7 +80,7 @@ catch
 #* Check if installation file exist
 #*===============================================
 
-if  (Get-ChildItem -Path "C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx" -ErrorAction SilentlyContinue) {
+if  (Get-ChildItem -Path "C:\ProgramData\DeployIT\PAWDeploy\Images\Kali.vhdx" -ErrorAction SilentlyContinue) {
     
     try {
         New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null

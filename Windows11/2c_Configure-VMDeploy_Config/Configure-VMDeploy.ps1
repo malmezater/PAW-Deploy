@@ -40,8 +40,8 @@ SOFTWARE.
 Param(
 )
 
-$SourceFiles = "Configure-VMDeploy"
-$ApplicationName = "VMDeploy"
+$SourceFiles = "Configure-PAWDeploy"
+$ApplicationName = "PAWDeploy"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
 $ApplicationKeyPath = "$RegistryApplicationName"
@@ -129,7 +129,7 @@ Write-Log "$ScriptName - Model: $TSModel"
 ##* Check if installation file exist
 ##*===============================================
 
-if (Get-ChildItem -Path "$env:ProgramData\DeployIT\VMDeploy\Config.xml" -ErrorAction SilentlyContinue) {
+if (Get-ChildItem -Path "$env:ProgramData\DeployIT\PAWDeploy\Config.xml" -ErrorAction SilentlyContinue) {
     # Create or update the registry value
     try {
         New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null

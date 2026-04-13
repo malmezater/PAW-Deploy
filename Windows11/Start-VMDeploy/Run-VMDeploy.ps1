@@ -1,11 +1,11 @@
 
 $item = "$PSScriptRoot\$SourceFiles"
-$SourceFiles = "Run-VMDeploy"
+$SourceFiles = "Run-PAWDeploy"
 $DeployIT = "C:\ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $PowershellLogPath = "$DeployITLogs\$SourceFiles.log"
-$vhdxtemp = Get-childitem -Path $env:ProgramData\DeployIT\VMDeploy\Images\Windows11.vhdx
-$CheckItem = New-Item -Path "$DeployIT\Check\Run-VMDeploy.txt" -Force
+$vhdxtemp = Get-childitem -Path $env:ProgramData\DeployIT\PAWDeploy\Images\Windows11.vhdx
+$CheckItem = New-Item -Path "$DeployIT\Check\Run-PAWDeploy.txt" -Force
 
 Start-Transcript -Path $PowershellLogPath -Force -Append
 
@@ -29,7 +29,7 @@ Start-Transcript -Path $PowershellLogPath -Force -Append
     if ($vhdxtemp) {
 
         Write-Host "Windows 11 template is downloaded, proceeding with the script."
-        Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\DeployIT\VMDeploy\VMDeploywUI.ps1
+        Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\DeployIT\PAWDeploy\PAWDeploywUI.ps1
 
     } 
         
