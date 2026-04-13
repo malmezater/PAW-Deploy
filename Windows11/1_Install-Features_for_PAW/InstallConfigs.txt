@@ -1,0 +1,16 @@
+## Install command
+PowerShell -ExecutionPolicy ByPass -NoProfile -File PS1FILENAME.ps1 PS1ARGUMENTS -URLModule https://SERVER/Powershell/RejlersIT/RejlersPowershellModule.ps1
+
+## Uninstall command
+PowerShell -ExecutionPolicy ByPass -NoProfile -File PS1FILENAME.ps1 PS1ARGUMENTS -URLModule https://SERVER/Powershell/RejlersIT/RejlersPowershellModule.ps1
+
+## Install behavior
+SYSTEM [X]
+USER [ ]
+
+## Detection rule
+Detectionscript [ ]
+Filepath [C:\ProgramData\RejlersIT\VMDeploy\ ]
+Registry [Key: ]
+	 [Value Name: ]
+	 [Value: ]
