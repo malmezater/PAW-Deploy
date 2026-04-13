@@ -4,12 +4,9 @@ $SourceFiles = "PawNetwork"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
 $ApplicationKeyPath = "$RegistryApplicationName"
-$Application = $ApplicationName # Replace with the actual application name
-$item = "$PSScriptRoot\$SourceFiles"
 $DeployIT = "C:\ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $DeployITDownload = "$DeployIT\Download"
-$Date = Get-Date -Format yyMMdd-HHmm
 $PowershellLogPath = "$DeployITLogs\$SourceFiles-PS.log"
 
 Start-Transcript -Path $PowershellLogPath -Force -Append
@@ -81,8 +78,8 @@ if((Get-VMSwitch | Where-Object Name -EQ UplinkSwitch))
 else {
 
     $NetAdapter = Get-NetAdapter -Physical | Where-Object Status -EQ Up
-    New-VMSwitch -Name "UplinkSwitch" -NetAdapterName $NetAdapter.Name -AllowManagementOS $true
-    Write-Host "The VMSwitch UplinkSwitch was created"
+    New-VMSwitch -Name "Ethernet Cable" -NetAdapterName $NetAdapter.Name -AllowManagementOS $true
+    Write-Host "The VMSwitch Ethernet Cable was created"
     try {
         New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null
         Write-Host "Registry value for $SourceFiles created/updated successfully."
@@ -91,7 +88,4 @@ else {
     }
 }
 
-#Get-NetAdapter -Name "*default switch*" | Disable-NetAdapter -Confirm:$false
-
 Stop-Transcript
-
