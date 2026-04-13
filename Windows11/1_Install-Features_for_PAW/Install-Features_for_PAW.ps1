@@ -1,4 +1,4 @@
-﻿$ApplicationName = "VMDeploy"
+﻿$ApplicationName = "PAWDeploy"
 $SourceFiles = "HyperV"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
@@ -58,7 +58,6 @@ Foreach($Feature in $HyperVFeatures) {
         if ($_.State -eq "Enabled") {
             Write-Host "$Feature is already enabled."
         } else {
-            $AllFeaturesEnabled = $false
             Enable-WindowsOptionalFeature -FeatureName $Feature -LimitAccess -NoRestart -Online
         }
     }
@@ -68,22 +67,45 @@ Foreach($Feature in $HyperVFeatures) {
 ##* Check if all features are enabled
 ##*===============================================
 
+$MaxCheckAttempts = 5
+$CheckDelaySeconds = 10
+$RemainingAttempts = $MaxCheckAttempts
+$AllFeaturesEnabled = $false
 
-Foreach ($Feature in $HyperVFeatures) {
+do {
+    $AllFeaturesEnabled = $true
 
-    if ((Get-WindowsOptionalFeature -FeatureName $Feature -Online).State -eq "Enabled") {
-        Write-Host "HyperV Features $Feature is Enabled"
-        try {
-            New-ItemProperty -Path $ApplicationKeyPath -Name $Feature -Value "Enabled" -PropertyType String -Force | Out-Null
-            Write-Host "Registry value for $Feature created/updated successfully."
-        } catch {
-            Write-Error "Failed to create/update registry value for $Feature."
+    Foreach ($Feature in $HyperVFeatures) {
+        $featureState = (Get-WindowsOptionalFeature -FeatureName $Feature -Online).State
+
+        if ($featureState -eq "Enabled") {
+            Write-Host "HyperV Feature $Feature is Enabled"
+            try {
+                New-ItemProperty -Path $ApplicationKeyPath -Name $Feature -Value "Enabled" -PropertyType String -Force | Out-Null
+                Write-Host "Registry value for $Feature created/updated successfully."
+            } catch {
+                Write-Error "Failed to create/update registry value for $Feature."
+            }
+        } else {
+            Write-Host "HyperV Feature $Feature is Disabled"
+            $AllFeaturesEnabled = $false
         }
-
-    } else {
-        Write-Host "HyperV Feature $Feature is Disabled"
     }
 
+    if (-not $AllFeaturesEnabled) {
+        $RemainingAttempts--
+        if ($RemainingAttempts -gt 0) {
+            Write-Host "Feature verification failed. Retrying in $CheckDelaySeconds seconds. Attempts remaining: $RemainingAttempts"
+            Start-Sleep -Seconds $CheckDelaySeconds
+        }
+    }
+} while (-not $AllFeaturesEnabled -and $RemainingAttempts -gt 0)
+
+if ($AllFeaturesEnabled) {
+    Write-Host "All features are enabled. Reboot required."
+} else {
+    Write-Host "Feature verification did not succeed after $MaxCheckAttempts attempts. Continuing to reboot with exit code 1641."
 }
 
 Stop-Transcript
+exit 1641

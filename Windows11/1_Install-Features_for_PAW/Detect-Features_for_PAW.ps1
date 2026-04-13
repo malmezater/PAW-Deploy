@@ -16,7 +16,6 @@ Foreach($Feature in $Features) {
         if ($_.State -eq "Enabled") {
             Write-Host "$Feature is already enabled."
         } else {
-            $AllFeaturesEnabled = $false
             New-Item -ItemType File -Path "C:\ProgramData\DeployIT\Check\$Feature-ConfHyperv.log" -Force
         }
     }
