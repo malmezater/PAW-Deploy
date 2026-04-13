@@ -1,5 +1,13 @@
+##*===============================================
+##* Custom variables
+##*===============================================
+
 $ApplicationName = "PAWDeploy"
-$SourceFiles = "FirewallRules"
+
+##*===============================================
+##* Static variables
+##*===============================================
+
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
 $ApplicationKeyPath = "$RegistryApplicationName"
@@ -7,9 +15,6 @@ $DeployIT = "C:\ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $DeployITDownload = "$DeployIT\Download"
 $PowershellLogPath = "$DeployITLogs\$SourceFiles-PS.log"
-
-Start-Transcript -Path $PowershellLogPath -Force -Append
-
 
 ##*===============================================
 ##* DeployIT LOG AND DOWNLOAD DIRECTORY
@@ -41,10 +46,19 @@ if (-not (Test-Path $RegistryApplicationName))
         Write-Host "Registry key $RegistryApplicationName already exists."
     }
 
+
 ##*===============================================
-##* INSTALLATION
+##* Custom variables for Firewall Rules
+##*===============================================
+    $SourceFiles = "FirewallRules"
 ##*===============================================
 
+
+##*===============================================
+##* INSTALLATION Firewall Rules
+##*===============================================
+
+Start-Transcript -Path $PowershellLogPath -Force -Append
 Write-Host "Checking if Firewall settings are disabled..."
 
 $Rules = @("VIRT-WMI-RPCSS-In-TCP-NoScope","VIRTCL-WMI-RPCSS-In-TCP-NoScope","VIRT-REMOTEDESKTOP-In-TCP-NoScope")
@@ -52,7 +66,6 @@ $Rules = @("VIRT-WMI-RPCSS-In-TCP-NoScope","VIRTCL-WMI-RPCSS-In-TCP-NoScope","VI
 
 $Rules | ForEach-Object {
     $Application = $_
-    $RegistryValuePath = "$ApplicationKeyPath\$Application"
 
     if ((Get-NetFirewallRule -Name $_).Enabled -eq "False") {
         Write-Host "Firewall rule $_ is disabled"
