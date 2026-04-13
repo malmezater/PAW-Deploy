@@ -1,4 +1,4 @@
-﻿$ApplicationName = "VMDeploy"
+﻿$ApplicationName = "PAWDeploy"
 $SourceFiles = "HyperV"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
@@ -67,30 +67,51 @@ Foreach($Feature in $HyperVFeatures) {
 ##* Check if all features are enabled
 ##*===============================================
 
+$MaxCheckAttempts = 3
+$RemainingAttempts = $MaxCheckAttempts
 
-Foreach ($Feature in $HyperVFeatures) {
+Write-Host "Checking HyperV feature status up to $MaxCheckAttempts times."
 
-    if ((Get-WindowsOptionalFeature -FeatureName $Feature -Online).State -eq "Enabled") {
-        Write-Host "HyperV Features $Feature is Enabled"
-        try {
-            New-ItemProperty -Path $ApplicationKeyPath -Name $Feature -Value "Enabled" -PropertyType String -Force | Out-Null
-            Write-Host "Registry value for $Feature created/updated successfully."
-        } catch {
-            Write-Error "Failed to create/update registry value for $Feature."
+do {
+    $AllFeaturesEnabled = $true
+
+    Foreach ($Feature in $HyperVFeatures) {
+        $featureState = (Get-WindowsOptionalFeature -FeatureName $Feature -Online).State
+
+        if ($featureState -eq "Enabled") {
+            Write-Host "HyperV Feature $Feature is Enabled"
+            try {
+                New-ItemProperty -Path $ApplicationKeyPath -Name $Feature -Value "Enabled" -PropertyType String -Force | Out-Null
+                Write-Host "Registry value for $Feature created/updated successfully."
+            } catch {
+                Write-Error "Failed to create/update registry value for $Feature."
+            }
+        } else {
+            Write-Host "HyperV Feature $Feature is Disabled"
+            $AllFeaturesEnabled = $false
         }
-
-    } else {
-        Write-Host "HyperV Feature $Feature is Disabled"
     }
 
-}
+    if ($AllFeaturesEnabled) {
+        break
+    }
 
-if ($AllFeaturesEnabled) {
-    Write-Host "All features are enabled. Reboot required."
-    Write-Host 1641  # Exit code 1641 indicates a reboot is required.
+    $RemainingAttempts--
+    if ($RemainingAttempts -gt 0) {
+        Write-Host "Not all features are enabled yet. Retrying in 10 seconds. Remaining attempts: $RemainingAttempts"
+        Start-Sleep -Seconds 10
+    } else {
+        Write-Host "Retry counter reached 0."
+    }
+} while ($RemainingAttempts -gt 0)
+
+if ($AllFeaturesEnabled -or $RemainingAttempts -eq 0) {
+    Write-Host "Reboot required. Exiting with code 1641."
+    Stop-Transcript
+    Restart-Computer -Force -Confirm:$false
+    exit 1641
 } else {
-    Write-Host "Not all features are enabled. No reboot required."
-    Write-Host 0  # Exit code 0 indicates success without reboot.
+    Write-Host "Not all features enabled and retries remain. No reboot required."
+    Stop-Transcript
+    exit 0
 }
-
-Stop-Transcript
