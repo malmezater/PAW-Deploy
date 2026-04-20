@@ -75,13 +75,13 @@ if(!(Test-Path $DeployITDownload)){
     write-host "DownloadPath: $DeployITDownload already exist. No need to create directory."
     }
 
-if (-not (Test-Path $RegistryApplicationName)) {
-    Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
-    New-Item -Path $RegistryApplicationName -Force
-    } 
-    else {
-    Write-Host "Registry key $RegistryApplicationName already exists."
-    }
+# if (-not (Test-Path $RegistryApplicationName)) {
+#     Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
+#     New-Item -Path $RegistryApplicationName -Force
+#     } 
+#     else {
+#     Write-Host "Registry key $RegistryApplicationName already exists."
+#     }
 
 if (-not (Test-Path $RegistrySoftwareName)) 
 {
