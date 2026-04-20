@@ -49,7 +49,6 @@ $RegistrySoftwareName = "$RegistryPath\$SoftwareName" -replace (" ","")
 $ApplicationKeyPath = "$RegistrySoftwareName"
 $Date = Get-Date -Format yyMMdd
 $Global:InstallerCount = 0
-
 #endregion
 
 #region Start Transcript and load functions
@@ -58,36 +57,31 @@ $Global:InstallerCount = 0
 ##*==========================================================
 
 $LogPath = "$DeployITLogs\$($MyInvocation.MyCommand.Name)-$Date.log"
-Start-Transcript -Path $LogPath
-    
-$DeployPSM1File = Get-ChildItem $PSScriptRoot -Filter "DeployPowershellModule.psm1" | select -ExpandProperty FullName
-if (!($DeployPSM1File))
-{
-    try
-    {
-        Invoke-Expression (New-Object Net.WebClient).DownloadString($URLModule)
+Start-Transcript -Path $LogPath -Force -Append
+
+if(!(Test-Path $DeployITLogs)){
+    write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
+    New-Item -ItemType Directory $DeployITLogs -Force
     }
-    catch
-    {
-        Write-Warning "Could not load Deploy module!"
-        Write-Warning "Script will now end!"
-        Stop-Transcript
+    else{
+    write-host "Logpath: $DeployITLogs already exist. No need to create directory."
     }
-}
-else
-{
-    try
-    {
-        Import-Module $DeployPSM1File -Force -ErrorAction Stop
+
+if(!(Test-Path $DeployITDownload)){
+    write-host "DownloadPath: $DeployITDownload doesn't exist. Creating directory."
+    New-Item -ItemType Directory $DeployITDownload -Force
     }
-    catch
-    {
-        $_
-        Write-Warning "Could not load Deploy module!"
-        Write-Warning "Script will now end!"
-        Stop-Transcript
+    else{
+    write-host "DownloadPath: $DeployITDownload already exist. No need to create directory."
     }
-}
+
+if (-not (Test-Path $RegistryApplicationName)) {
+    Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
+    New-Item -Path $RegistryApplicationName -Force
+    } 
+    else {
+    Write-Host "Registry key $RegistryApplicationName already exists."
+    }
 
 if (-not (Test-Path $RegistrySoftwareName)) 
 {
@@ -139,14 +133,6 @@ Write-Log " "
         Write-Log "                    PRE-INSTALLATION"
         Write-Log "========================================================"
         Write-Log " "
-
-        if ((Get-IsUserElevated) -eq $true)
-        {
-            Add-DeployITLogs
-            Add-DeployITDownload
-        }
-
-
 
 
 
