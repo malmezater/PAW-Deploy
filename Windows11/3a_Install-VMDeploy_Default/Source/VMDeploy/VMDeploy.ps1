@@ -19,7 +19,7 @@ Param
     [parameter(Position=4,mandatory=$False)]
     [ValidateNotNullOrEmpty()]
     [String]
-    $VMLocation="NA",
+    $VMLocation="C:\Programdata\DeployIT\VMDeploy\VMs",
 
     [parameter(Position=5,mandatory=$False)]
     [String]
@@ -62,8 +62,8 @@ Param
     $DataFromFile,
 
     [parameter(Position=14,mandatory=$False)]
-    [Switch]
-    $ConfigFile
+    [String]
+    $RemoteDesktopUser
 )
 
 if($RootFolder -eq "NA"){
@@ -97,15 +97,55 @@ Function New-TSxShortCut{
     }
 }
 
-Start-Transcript -Path "$RootFolder\VMDeploy.log" -Append
+Start-Transcript -Path "C:\ProgramData\DeployIT\logs\$VMName-VMDeploy.log" -Append
 
-# Get Data
-$XMLDatafile = "$RootFolder\Config.XML"
-[XML]$XMLData = Get-Content -Path "$XMLDatafile"
+#Get LData
+$XMLLDatafile = "$RootFolder\lConfig.XML"
+[XML]$XMLLData = Get-Content -Path $XMLLDatafile
+
+switch ($XMLLData.Settings.Source)
+{
+    'local' {
+        #Get Data
+        $XMLDatafile = $XMLLData.Settings.XMLFile
+        [XML]$XMLData = Get-Content -Path "$RootFolder\$XMLDatafile"
+    }
+    'http' {
+        #Get Data
+        $XMLDatafile = $XMLLData.Settings.XMLFile
+        [XML]$XMLData = (New-Object System.Net.WebClient).DownloadString($XMLDatafile)
+    }
+    'unc' {
+        #Get Data
+        $XMLDatafile = $XMLLData.Settings.XMLFile
+        [XML]$XMLData = (New-Object System.Net.WebClient).DownloadString($XMLDatafile)
+    }
+    Default {}
+}
 
 $MountFolder = "$RootFolder\Mount"
+
 $CustomerData = $XMLData.Settings.CustomerData
 $TemplateData = $XMLData.Settings.Templates.Template | Where-Object Name -EQ $Template
+
+$OrgName = $CustomerData.OrgName
+$Fullname = $CustomerData.FullName
+
+$Generation = $TemplateData.VMGen
+$DomainOrWorkGroup = $TemplateData.DomainOrWorkGroup
+$VMMemoryInMB = $TemplateData.Memory
+$VMMemoryLowInMB = $TemplateData.MemoryLow
+$VMMemoryHighInMB = $TemplateData.MemoryHigh
+$VHDFile = $TemplateData.VHDFile
+$NoCPU = $TemplateData.NoCPU
+$TimeZoneName = $TemplateData.TimeZoneName
+$DNSDomain = $TemplateData.DNSDomain
+$DiskMode = $TemplateData.DiskMode
+$MachineObjectOU = $TemplateData.MachineObjectOU
+$OSClass = $TemplateData.OSClass
+$OS = $TemplateData.OS
+$VMSwitchName = $TemplateData.VMSwitch
+$DomainAdminDomain = $TemplateData.DNSDomain
 
 if($OSDAdapter0IPAddressList -eq 'DHCP'){
     $OSDAdapter0Gateways = 'DHCP'
@@ -115,7 +155,7 @@ if($OSDAdapter0IPAddressList -eq 'DHCP'){
 }
 
 #Default setting for verbose
-#$Global:VerbosePreference = "SilentlyContinue"
+$Global:VerbosePreference = "SilentlyContinue"
 
 #Import-Modules
 Import-Module -Global $rootFolder\Functions\VIAHypervModule.psm1 -ErrorAction Stop -Force
@@ -123,7 +163,9 @@ Import-Module -Global $rootFolder\Functions\VIAUtilityModule.psm1 -ErrorAction S
 Import-Module -Global $rootFolder\Functions\VIADeployModule.psm1 -ErrorAction Stop -Force
 
 #Enable verbose for testing
-# $Global:VerbosePreference = "Continue"
+$Global:VerbosePreference = "Continue"
+
+$VIASetupCompletecmdCommand = "cmd.exe /c PowerShell.exe -Command New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Virtual Machine\Guest' -Name OSDeployment -Value Done -PropertyType String"
 
 ### End Init ###
 
@@ -136,279 +178,386 @@ if($DataFromFile){
     Remove-Item -Path "$env:TEMP\vmdeploy.xml" -Force
 }
 
+Write-Verbose "DomainOrWorkgroup: $DomainOrWorkGroup"
+
+
 # Check if the VM exists
-Write-Host -ForegroundColor Green "Check if VM already exist"
+Write-Verbose "Check if VM already exist"
 If ((Test-VIAVMExists -VMname $VMName) -eq $true){
     Write-Warning "$VMName already exist"
+    Start-Sleep -Seconds 5
     Exit 1
 }
 else{
-    Write-Host -ForegroundColor Green "$VMname does not exist, continue"
+    Write-Verbose "$VMname does not exist, continue"
 }
 
 # Check if the Switch exists
-Write-Host -ForegroundColor Green "Check if switch $($TemplateData.VMSwitch) exist"
-If (!((Get-VMSwitch | Where-Object Name -EQ $($TemplateData.VMSwitch)).count -eq 1)){
-    Write-Warning "Switch $($TemplateData.VMSwitch) does not exist"
+Write-Verbose "Check if switch $VMSwitchName exist"
+If (!((Get-VMSwitch | Where-Object Name -EQ $VMSwitchName).count -eq 1)){
+    Write-Warning "Switch $VMSwitchName does not exist"
+    Start-Sleep -Seconds 5
     Exit 1
 }
 else{
-    Write-Host -ForegroundColor Green "Switch $($TemplateData.VMSwitch) exist"
+    Write-Verbose "Switch $VMSwitchName exist"
 }
 
-# Check VMLocation
-if($VMlocation -eq "NA"){
-    $VMlocation = $XMLData.Settings.Hyperv.VMLocation
-}else{
-    $VMlocation = "C:\VMs"
-}
-Write-Host -ForegroundColor Green "VMLocation is now $VMlocation"
 
-# Creating VM Folder
-if(Test-Path -path "$VMlocation\$VMName"){
-    Write-Warning "Folder $VMlocation\$VMName already exist"
-    Exit 1
-}else{
-    Write-Host -ForegroundColor Green "Creating folder $VMlocation\$VMName"
-    $result = New-Item -Path "$VMlocation\$VMName" -ItemType Directory
+#Download the VHDx
+Write-Verbose "Creating folders"
+$result = New-Item -Path "$VMlocation\$VMName" -ItemType Directory -Force
+$result = New-Item -Path "$VMlocation\$VMName\Virtual Hard Disks" -ItemType Directory  -Force
+
+if($VHDFile -ne 'NA'){
+    Write-Verbose "Loading the webclient"
+    $wc = New-Object System.Net.WebClient
+    Write-Verbose "Download from from $VHDFile"
+    Write-Verbose "Download to $VMlocation\$VMName\Virtual Hard Disks\$($VHDFile | Split-Path -Leaf)"
+    Write-Verbose "This will take time...Take a break..."
+    $wc.DownloadFile($VHDFile, "$VMlocation\$VMName\Virtual Hard Disks\$($VHDFile | Split-Path -Leaf)")
 }
 
-# Creating VM Harddisk Folder
-if(Test-Path -path "$VMlocation\$VMName\Virtual Hard Disks"){
-    Write-Warning "Folder $VMlocation\$VMName\Virtual Hard Disks already exist"
-    Exit 1
-}else{
-    $result = New-Item -Path "$VMlocation\$VMName\Virtual Hard Disks" -ItemType Directory
-    Write-Host -ForegroundColor Green "Creating folder $($result.FullName)"
+if($VHDFile -ne 'NA'){
+    if((Test-Path -Path "$VMlocation\$VMName\Virtual Hard Disks\$($VHDFile | Split-Path -Leaf)") -ne $true){
+        Write-Warning "Could not find the file $VMlocation\$VMName\Virtual Hard Disks\$($VHDFile | Split-Path -Leaf), sorry, but the file transfer was not sucessful"
+        Start-Sleep -Seconds 5
+        EXIT
+    }
 }
 
-if(!(Test-Path -Path "$($TemplateData.VHDFile)")){
-    Write-Warning "Could not find the file $($TemplateData.VHDFile)"
-    EXIT 1
+if($VHDFile -ne 'NA'){
+    Write-Verbose "Creating $VMName"
+    $VM = New-VIAVM -VMName $VMName -VMMem ([int]$VMMemoryInMB * 1024 * 1024) -VMvCPU $NoCPU -VMLocation $VMlocation -VHDFile "$VMlocation\$VMName\Virtual Hard Disks\$($VHDFile | Split-Path -Leaf)" -DiskMode $DiskMode -VMSwitchName $VMSwitchName -VMGeneration $Generation -Verbose -DynaMem
+}
+else{
+    Write-Verbose "Creating $VMName"
+    $VM = New-VIAVM -VMName $VMName -VMMem ([int]$VMMemoryInMB * 1024 * 1024) -VMvCPU $NoCPU -VMLocation $VMlocation -DiskMode $DiskMode -VMSwitchName $VMSwitchName -VMGeneration $Generation -Verbose -DynaMem -EmptyDiskSize 120GB
 }
 
-Write-Host -ForegroundColor Green "Creating $VMName"
-$VM = New-VIAVM -VMName $VMName -VMMem ([int]$TemplateData.Memory * 1024 * 1024) -VMvCPU $TemplateData.NoCPU -VMLocation $VMlocation -DiskMode $($TemplateData.DiskMode) -VMSwitchName $($TemplateData.VMSwitch) -VMGeneration $TemplateData.VMGen -VHDFile $TemplateData.VHDFile
-
-Write-Host -ForegroundColor Green "Check if $($VM.Name) exist"
+Write-Verbose "Check if exist"
 If ((Test-VIAVMExists -VMname $VMName) -eq $False){
     Write-Warning "$VMName does not exist"
     Start-Sleep -Seconds 5
     Exit 1
 }
 
-# Create unattend xml
-switch ($TemplateData.OSClass){
-    'Client'{
-        $VIAUnattendXML = New-VIAUnattendXMLClientfor1709 -Computername $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -DomainOrWorkGroup $TemplateData.DomainOrWorkGroup -ProtectYourPC 3 -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -OrgName $CustomerData.OrgName -Fullname $CustomerData.FullName -TimeZoneName $TemplateData.TimeZoneName -DNSDomain $($TemplateData.DNSDomain) -DomainAdmin $DomainAdmin -DomainAdminPassword $DomainAdminPassword -DomainAdminDomain $TemplateData.DNSDomain -MachineObjectOU $TemplateData.MachineObjectOU -AdminPassword $AdminPassword
+
+if($VHDFile -ne 'NA'){
+    #Create unattend xml
+    switch ($OSClass){
+        'Client'{
+            if($OS -eq 'W7'){
+                $VIAUnattendXML = New-VIAUnattendXMLClientForW7 -Computername $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -DomainOrWorkGroup $DomainOrWorkGroup -ProtectYourPC 3 -Verbose -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -OrgName $OrgName -Fullname $Fullname -TimeZoneName $TimeZoneName -DNSDomain $DNSDomain -DomainAdmin $DomainAdmin -DomainAdminPassword $DomainAdminPassword -DomainAdminDomain $DomainAdminDomain -MachineObjectOU $MachineObjectOU -AdminPassword $AdminPassword
+            }
+            else{
+                $VIAUnattendXML = New-VIAUnattendXMLClientfor1709 -Computername $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -DomainOrWorkGroup $DomainOrWorkGroup -ProtectYourPC 3 -Verbose -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -OrgName $OrgName -Fullname $Fullname -TimeZoneName $TimeZoneName -DNSDomain $DNSDomain -DomainAdmin $DomainAdmin -DomainAdminPassword $DomainAdminPassword -DomainAdminDomain $DomainAdminDomain -MachineObjectOU $MachineObjectOU -AdminPassword $AdminPassword
+            }
+        }
+        'Server'{
+            $VIAUnattendXML = New-VIAUnattendXML -Computername $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -DomainOrWorkGroup $DomainOrWorkGroup -ProtectYourPC 3 -Verbose -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1  -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -OrgName $OrgName -Fullname $Fullname -TimeZoneName $TimeZoneName -DNSDomain $DNSDomain -DomainAdmin $DomainAdmin -DomainAdminPassword $DomainAdminPassword -DomainAdminDomain $DomainAdminDomain -MachineObjectOU $MachineObjectOU -AdminPassword $AdminPassword
+        }
+        Default{
+            $VIAUnattendXML = New-VIAUnattendXMLClientfor1709 -Computername $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -DomainOrWorkGroup $DomainOrWorkGroup -ProtectYourPC 3 -Verbose -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -OrgName $OrgName -Fullname $Fullname -TimeZoneName $TimeZoneName -DNSDomain $DNSDomain -DomainAdmin $DomainAdmin -DomainAdminPassword $DomainAdminPassword -DomainAdminDomain $DomainAdminDomain -MachineObjectOU $MachineObjectOU -AdminPassword $AdminPassword
+        }
     }
-    'Server'{
-        $VIAUnattendXML = New-VIAUnattendXML -Computername $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -DomainOrWorkGroup $TemplateData.DomainOrWorkGroup -ProtectYourPC 3 -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1  -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -OrgName $CustomerData.OrgName -Fullname $CustomerData.FullName -TimeZoneName $TemplateData.TimeZoneName -DNSDomain $($TemplateData.DNSDomain) -DomainAdmin $DomainAdmin -DomainAdminPassword $DomainAdminPassword -DomainAdminDomain $TemplateData.DNSDomain -MachineObjectOU $TemplateData.MachineObjectOU -AdminPassword $AdminPassword
-    }
-    Default{
-        $VIAUnattendXML = New-VIAUnattendXMLClientfor1709 -Computername $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -DomainOrWorkGroup $TemplateData.DomainOrWorkGroup -ProtectYourPC 3 -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -OrgName $CustomerData.OrgName -Fullname $CustomerData.FullName -TimeZoneName $TemplateData.TimeZoneName -DNSDomain $($TemplateData.DNSDomain) -DomainAdmin $DomainAdmin -DomainAdminPassword $DomainAdminPassword -DomainAdminDomain $TemplateData.DNSDomain -MachineObjectOU $TemplateData.MachineObjectOU -AdminPassword $AdminPassword
-    }
+
+    $VIASetupCompletecmd = New-VIASetupCompleteCMD -Command $VIASetupCompletecmdCommand
+    $VMVHDFile = (Get-VMHardDiskDrive -VMName $VMName)
+    If((Test-Path -Path $MountFolder) -eq $true){Remove-Item -Path $MountFolder -Force -Recurse}
+    Mount-VIAVHDInFolder -VHDfile $VMVHDFile.Path -MountFolder $MountFolder
+    New-Item -Path "$MountFolder\Windows\Panther" -ItemType Directory -Force | Out-Null
+    New-Item -Path "$MountFolder\Windows\Setup" -ItemType Directory -Force | Out-Null
+    New-Item -Path "$MountFolder\Windows\Setup\Scripts" -ItemType Directory -Force | Out-Null
+    Copy-Item -Path $VIAUnattendXML.FullName -Destination "$MountFolder\Windows\Panther\$($VIAUnattendXML.Name)" -Force
+    Copy-Item -Path $VIASetupCompletecmd.FullName -Destination "$MountFolder\Windows\Setup\Scripts\$($VIASetupCompletecmd.Name)" -Force
+
+    Dismount-VIAVHDInFolder -VHDfile $VMVHDFile.Path -MountFolder $MountFolder
+    Remove-Item -Path $VIAUnattendXML.FullName
+    Remove-Item -Path $VIASetupCompletecmd.FullName
 }
-Write-Host -ForegroundColor Green "Created $($VIAUnattendXML.FullName)"
-
-$VIASetupCompletecmdCommand = "cmd.exe /c PowerShell.exe -Command New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Virtual Machine\Guest' -Name OSDeployment -Value Done -PropertyType String"
-$VIASetupCompletecmd = New-VIASetupCompleteCMD -Command $VIASetupCompletecmdCommand
-Write-Host -ForegroundColor Green "Created $($VIASetupCompletecmd.FullName)"
-
-$VMVHDFile = (Get-VMHardDiskDrive -VMName $VMName)
-If((Test-Path -Path $MountFolder) -eq $true){
-    Remove-Item -Path $MountFolder -Force -Recurse
-}
-Mount-VIAVHDInFolder -VHDfile $VMVHDFile.Path -MountFolder $MountFolder
-Write-Host -ForegroundColor Green "Mounted $($VMVHDFile.Path) in $MountFolder"
-
-if(Test-Path -path "$MountFolder\Windows\Panther"){
-    Write-Warning "Folder $MountFolder\Windows\Panther"
-    Exit 1
-}else{
-    $Result = New-Item -Path "$MountFolder\Windows\Panther" -ItemType Directory
-    Write-Host -ForegroundColor Green "Folder $($Result.FullName) was created"
-}
-
-if(Test-Path -path "$MountFolder\Windows\Setup\Scripts"){
-    Write-Warning "Folder $MountFolder\Windows\Setup\Scripts"
-    Exit 1
-}else{
-    $Result = New-Item -Path "$MountFolder\Windows\Setup\Scripts" -ItemType Directory
-    Write-Host -ForegroundColor Green "Folder $($Result.FullName) was created"
-}
-
-Copy-Item -Path $VIAUnattendXML.FullName -Destination "$MountFolder\Windows\Panther\$($VIAUnattendXML.Name)"
-Write-Host -ForegroundColor Green "$($VIAUnattendXML.FullName) was copied to $MountFolder\Windows\Panther\$($VIAUnattendXML.Name)"
-
-Copy-Item -Path $VIASetupCompletecmd.FullName -Destination "$MountFolder\Windows\Setup\Scripts\$($VIASetupCompletecmd.Name)"
-Write-Host -ForegroundColor Green "$($VIASetupCompletecmd.FullName) was copied to $MountFolder\Windows\Setup\Scripts\$($VIASetupCompletecmd.Name)"
-
-# Check if SECBL is on the C drive
-if((Test-Path -Path $($TemplateData.SecurityBaselineLocation)) -eq $true){
-    Write-Host -ForegroundColor Green "Copying Security Baselines"
-    Copy-Item -Path "$($TemplateData.SecurityBaselineLocation)" -Destination "$MountFolder\SECBL" -Recurse -Container -Force
-}
-
-Write-Host -ForegroundColor Green "Dismounting VHD file"
-Dismount-VIAVHDInFolder -VHDfile $VMVHDFile.Path -MountFolder $MountFolder
-
-Write-Host -ForegroundColor Green "Removing $($VIAUnattendXML.FullName)"
-Remove-Item -Path $VIAUnattendXML.FullName
-
-Write-Host -ForegroundColor Green "Removing $($VIASetupCompletecmd.FullName)"
-Remove-Item -Path $VIASetupCompletecmd.FullName
 
 #Set VLANid for NIC01
 if($VLanID -ne '0'){
-    Write-Host -ForegroundColor Green "Setting VLAN $VLanID"
+    Write-Verbose "Setting VLAN $VLanID"
     Set-VMNetworkAdapterVlan -VMName $VMName -VlanId $VLanID -Access
 }
 
 #Adjust memory
-if($TemplateData.DynamicMem -eq "True"){
-    Write-Host -ForegroundColor Green "Enable Dynamic Memory"
-    Set-VMMemory -VMName $VMname -DynamicMemoryEnabled $True
-}
+#Set-VMMemory -VMName $VMname -StartupBytes ([int]$VMMemoryInMB * 1024 * 1024) -MinimumBytes ([int]$VMMemoryLowInMB * 1024 * 1024) -MaximumBytes ([int]$VMMemoryHighInMB * 1024 * 1024)
+Set-VMMemory -VMName $VMname -DynamicMemoryEnabled $false -StartupBytes ([int]$VMMemoryInMB * 1024 * 1024)
+
+
+# Configure VM
+$Action = "Configure VM"
+Write-Verbose "$Action"
 
 # Disable AutomaticCheckpointsEnabled
-if((Get-VM $VMName).AutomaticCheckpointsEnabled -eq $true){
-    Write-Host -ForegroundColor Green "Disable AutomaticCheckpointsEnabled"
-    Get-VM -Name $VMname | Set-VM -AutomaticCheckpointsEnabled 0 -ErrorAction SilentlyContinue
-}
-
+Write-Verbose "Disable AutomaticCheckpointsEnabled"
+Get-VM -Name $VMname | Set-VM -AutomaticCheckpointsEnabled 0 -ErrorAction SilentlyContinue -Verbose
 
 # Set BatteryPassthroughEnabled
-Write-Host -ForegroundColor Green "Set BatteryPassthroughEnabled"
-Get-VM -Name $VMname | Set-VM -BatteryPassthroughEnabled $true
+Write-Verbose "Set BatteryPassthroughEnabled"
+Get-VM -Name $VMname | Set-VM -BatteryPassthroughEnabled $true -Verbose
 
 # Create VM Protector for the VM and enable TPM
-Write-Host -ForegroundColor Green "Create VM Protector for the VM and enable TPM"
-Set-VMKeyProtector -VMName $VMname -NewLocalKeyProtector
-Get-VM -Name $VMname | Enable-VMTPM
+Write-Verbose "Create VM Protector for the VM and enable TPM"
+Set-VMKeyProtector -VMName $VMname -NewLocalKeyProtector -Verbose
+Get-VM -Name $VMname | Enable-VMTPM -Verbose
 
 #Deploy VM
-Write-Host -ForegroundColor Green "Starting $VMname"
-Start-VM -VMname $VMname -ErrorAction Inquire
+$Action = "Deploy VM"
+Start-VM -VMname $VMname
 Wait-VIAVMIsRunning -VMname $VMname
+if($VHDFile -ne 'NA'){
+    # Generate credentials for the VM
+    Write-Verbose "Generate credentials for the VM"
+    $SecurePassword = ConvertTo-SecureString -String $AdminPassword -AsPlainText -Force
+    $Cred = New-Object System.Management.Automation.PSCredential -ArgumentList ".\Administrator",$SecurePassword
 
-# Generate credentials for the VM
-Write-Host -ForegroundColor Green "Generate credentials for the VM"
-$SecurePassword = ConvertTo-SecureString -String $AdminPassword -AsPlainText -Force
-$Cred = New-Object System.Management.Automation.PSCredential -ArgumentList ".\Administrator",$SecurePassword
+    # Wait for the VM to start
+    Write-Verbose "Wait for the VM to start"
+    Wait-VIAVMHaveICLoaded -VMname $VMname
+    Wait-VIAVMHaveIP -VMname $VMname
+    Wait-VIAVMDeployment -VMname $VMName
+    Wait-VIAVMHavePSDirect -VMname $VMName -Credentials $Cred
 
-# Wait for the VM to start
-Write-Host -ForegroundColor Green "Wait for the VM to have IC loaded"
-Wait-VIAVMHaveICLoaded -VMname $VMname
-Write-Host -ForegroundColor Green "Wait for the VM to have an IP address"
-Wait-VIAVMHaveIP -VMname $VMname
-Write-Host -ForegroundColor Green "Wait for the VM to write complete in KVP"
-Wait-VIAVMDeployment -VMname $VMName
-Write-Host -ForegroundColor Green "Wait for the VM accept PowerShell Direct"
-Wait-VIAVMHavePSDirect -VMname $VMName -Credentials $Cred
-Write-Host -ForegroundColor Green "Waiting is over, moving on"
-
-# Connect and enable bitlocker
-Write-Host -ForegroundColor Green "Connect and enable bitlocker"
-$ScriptBlock = {
-    Write-Host -ForegroundColor Green "Clearing vTPM"
-    $Result = Initialize-Tpm -AllowClear -WarningAction SilentlyContinue
-
-    Write-Host -ForegroundColor Green "Enable Bitlocker"
-    $Result = Enable-BitLocker -MountPoint "C:" -EncryptionMethod Aes256 -TPMProtector -UsedSpaceOnly
-}
-Invoke-Command -VMName $VMname -ScriptBlock $ScriptBlock -Credential $Cred
-
-# Restart the VM
-Write-Host -ForegroundColor Green "Restarting VM"
-Stop-VM -Name $VMname
-Start-VM -Name $VMname
-# Wait for the VM to start
-Write-Host -ForegroundColor Green "Wait for the VM to have IC loaded"
-Wait-VIAVMHaveICLoaded -VMname $VMname
-Write-Host -ForegroundColor Green "Wait for the VM to have an IP address"
-Wait-VIAVMHaveIP -VMname $VMname
-Write-Host -ForegroundColor Green "Wait for the VM accept PowerShell Direct"
-Wait-VIAVMHavePSDirect -VMname $VMName -Credentials $Cred
-Write-Host -ForegroundColor Green "Waiting is over, moving on"
-
-# Connect and enable bitlocker
-Write-Host -ForegroundColor Green "Connect and encrypt disk"
-$ScriptBlock = {
-    do{
-        $EncryptionPercentage = (Get-BitLockerVolume -MountPoint C:).EncryptionPercentage
-        Write-Host -ForegroundColor Green "Percentige of disk encryptet: $EncryptionPercentage"
-        Start-Sleep -Seconds 15
+    # Connect and enable bitlocker
+    Write-Verbose "Get TPM status and enable bitlocker"
+    $ScriptBlock = {
+        try {
+            # Wait until TPM is ready
+            $tpm = Get-Tpm
+            if (-not $tpm.TpmPresent) {
+                throw "TPM not present"
+            }
+            while ($tpm.TpmReady -eq $false) {
+                Start-Sleep -Seconds 5
+                $tpm = Get-Tpm
+            }
+            # Initialize TPM if needed
+            if ($tpm.TpmReady -eq $false) {
+                Initialize-Tpm -AllowClear
+            }
+            # Enable BitLocker with TPM protector
+            Enable-BitLocker -MountPoint "C:" -EncryptionMethod Aes256 -UsedSpaceOnly -TpmProtector
+        }
+        catch {
+            # Fallback if TPM fails
+            Enable-BitLocker -MountPoint "C:" -EncryptionMethod Aes256 -UsedSpaceOnly -RecoveryPasswordProtector
+        }
     }
-    until ((Get-BitLockerVolume -MountPoint c:).volumestatus -eq "FullyEncrypted")
-}
-Invoke-Command -VMName $VMname -ScriptBlock $ScriptBlock -Credential $Cred
+    Invoke-Command -VMName $VMname -ScriptBlock $ScriptBlock -Credential $Cred
 
-# Restart the VM
-Write-Host -ForegroundColor Green "Restarting VM"
-Stop-VM -Name $VMname
-Get-VM -Name $VMname | Set-VMSecurityPolicy -Shielded $true
-Start-VM -Name $VMname
-# Wait for the VM to start
-Write-Host -ForegroundColor Green "Wait for the VM to have IC loaded"
-Wait-VIAVMHaveICLoaded -VMname $VMname
-Write-Host -ForegroundColor Green "Wait for the VM to have an IP address"
-Wait-VIAVMHaveIP -VMname $VMname
-Write-Host -ForegroundColor Green "Wait for the VM accept PowerShell Direct"
-Wait-VIAVMHavePSDirect -VMname $VMName -Credentials $Cred
-Write-Host -ForegroundColor Green "Waiting is over, moving on"
+    # Restart the VM
+    Write-Verbose "Restarting VM"
+    Stop-VM -Name $VMname
+    Start-VM -Name $VMname
+    Wait-VIAVMHaveICLoaded -VMname $VMname
+    Wait-VIAVMHaveIP -VMname $VMname
+    Wait-VIAVMHavePSDirect -VMname $VMName -Credentials $Cred
 
-
-if($TemplateData.ApplySecurityBaseline -eq "True"){
-    Switch ($TemplateData.DomainOrWorkGroup)
-    {
-        'Domain'{
-                    # Running SecurityBaselines
-                    $ScriptBlock = {
-                        if(Test-Path -Path C:\SECBL){
-                            Write-Host -ForegroundColor Green "Running SecurityBaselines"
-                            Set-Location -Path C:\SECBL\OS\Scripts
-                            PowerShell -ExecutionPolicy Bypass -File .\Baseline-LocalInstall.ps1 -Win11DomainJoined
-                            Set-Location -Path C:\SECBL\Edge\Scripts
-                            PowerShell -ExecutionPolicy Bypass -File .\Baseline-LocalInstall.ps1
-                        }
-                    }
-                    Invoke-Command -VMName $VMname -ScriptBlock $ScriptBlock -Credential $Cred
-                }
-        'Workgroup'{
-                    # Running SecurityBaselines
-                    $ScriptBlock = {
-                        if(Test-Path -Path C:\SECBL){
-                            Write-Host -ForegroundColor Green "Running SecurityBaselines"
-                            Set-Location -Path C:\SECBL\OS\Scripts
-                            PowerShell -ExecutionPolicy Bypass -File .\Baseline-LocalInstall.ps1 -Win11NonDomainJoined
-                            Set-Location -Path C:\SECBL\Edge\Scripts
-                            PowerShell -ExecutionPolicy Bypass -File .\Baseline-LocalInstall.ps1
-                        }
-                    }
-                    Invoke-Command -VMName $VMname -ScriptBlock $ScriptBlock -Credential $Cred
-                }
-        Default {
-                }
+    # Connect and enable bitlocker
+    Write-Verbose "Connect and enable bitlocker"
+    $ScriptBlock = {
+        do{
+            Get-BitLockerVolume -MountPoint "C:" | Select-Object EncryptionPercentage
+            Start-Sleep -Seconds 15
+        }
+        until ((Get-BitLockerVolume -MountPoint c:).volumestatus -eq "FullyEncrypted")
     }
-    Invoke-Command -VMName $VMname -Credential $Cred -ScriptBlock $ScriptBlock
-}
+    Invoke-Command -VMName $VMname -ScriptBlock $ScriptBlock -Credential $Cred
 
-# Stopping the VM
-Write-Host -ForegroundColor Green "Stopping $VMname"
-Stop-VM -Name $VMname
-
-# Create the folder to store shortcuts
-If((Test-Path -Path "$env:ALLUSERSPROFILE\Desktop\VMLinks") -ne $true){
-    Write-Host -ForegroundColor Green "Creating $env:ALLUSERSPROFILE\Desktop\VMLinks"
+    # RDP File
+    Write-Verbose "Creating Folder for RDP Link"
     New-Item -Path "$env:ALLUSERSPROFILE\Desktop\VMLinks" -Type Directory -Force
+    Write-Verbose "Creating VM RDP Link"
+    $Item = Get-VM -Name $VMName -ErrorAction SilentlyContinue
+    Write-Verbose "VM Name: $($item.VMName)"
+    Write-Verbose "VM GUID: $($item.VMId)"
+    New-Item -Path "$env:ALLUSERSPROFILE\Desktop\VMLinks" -Type Directory -Force 
+
+$RDPFileTemplate = @"
+
+pcb:s:{0};EnhancedMode=1
+full address:s:localhost
+server port:i:2179
+allow font smoothing:i:0
+allow desktop composition:i:0
+audiocapturemode:i:1
+audiomode:i:0
+authentication level:i:0
+autoreconnection enabled:i:1
+bandwidthautodetect:i:1
+compression:i:1
+connection type:i:7
+connect to console:i:1
+devicestoredirect:s:*
+drivestoredirect:s:DynamicDrives
+disable wallpaper:i:0
+disable full window drag:i:1
+disable menu anims:i:1
+disable themes:i:0
+disable cursor setting:i:0
+displayconnectionbar:i:1
+enableworkspacereconnect:i:0
+gatewayusagemethod:i:4
+gatewaycredentialssource:i:4
+gatewayprofileusagemethod:i:0
+gatewaybrokeringtype:i:0
+keyboardhook:i:1
+networkautodetect:i:1
+prompt for credentials:i:0
+negotiate security layer:i:0
+remoteapplicationmode:i:0
+promptcredentialonce:i:1
+redirectprinters:i:1
+redirectcomports:i:1
+redirectsmartcards:i:1
+redirectclipboard:i:1
+redirectposdevices:i:0
+screen mode id:i:1
+session bpp:i:32
+span monitors:i:0
+use multimon:i:0
+videoplaybackmode:i:1
+use redirection server name:i:0
+bitmapcachepersistenable:i:1
+usbdevicestoredirect:s:*
+winposstr:s:0,3,0,0,800,600
+redirectlocation:i:0
+redirectwebauthn:i:1
+alternate shell:s:
+shell working directory:s:
+gatewayhostname:s:
+rdgiskdcproxy:i:0
+kdcproxyname:s:
+enablerdsaadauth:i:0
+desktopwidth:i:1920
+desktopheight:i:1200
+"@
+
+    Write-Verbose "Creating VM RDP Link"
+    $Item = Get-VM -Name $VMName -ErrorAction SilentlyContinue
+    Write-Verbose "VM Name: $($item.VMName)"
+    Write-Verbose "VM GUID: $($item.VMId)"
+    If (Test-Path -Path "$Env:PUBLIC\Desktop\VMLinks") {
+        Write-Verbose "Folder for RDP Link already exist"
+    }else{
+        Write-Verbose "Creating Folder for RDP Link"
+        New-Item -Path "$Env:PUBLIC\Desktop\VMLinks" -Type Directory -Force
+    }
+
+    $($RDPFileTemplate -f $item.VMId) | Out-File "$Env:PUBLIC\Desktop\VMLinks\$($item.VMName).rdp" -Force
+
+
+    # Restart the VM
+    Write-Verbose "Restarting VM"
+    Stop-VM -Name $VMname -Force
+    if(!($Template -like "*OOBE*")){
+        
+        Get-VM -Name $VMname | Set-VMSecurityPolicy -Shielded $true -Verbose
+
+    }
+    Start-VM -Name $VMname
+    Wait-VIAVMHaveICLoaded -VMname $VMname
+    Wait-VIAVMHaveIP -VMname $VMname
+    Wait-VIAVMHavePSDirect -VMname $VMName -Credentials $Cred
+
+    If($Template -notlike "*Intune OOBE*"){
+
+    
+    if($RemoteDesktopUser -ne "Null"){
+
+            switch ($DomainOrWorkGroup)
+            {
+                'Domain' {
+                    
+                    
+                    $ScriptBlock = {
+                        
+                        Add-LocalGroupMember -SID 'S-1-5-32-545' -Member $("{0}\{1}" -f $args[0],$args[1])
+                        Add-LocalGroupMember -SID 'S-1-5-32-555' -Member $("{0}\{1}" -f $args[0],$args[1])
+
+                    }
+
+                    Write-Verbose "Adding $("{0}\{1}" -f $DNSDomain,$RemoteDesktopUser) to the Remote Desktop Users-Group"
+                    Invoke-Command -VMName $VMName -Credential $Cred -ScriptBlock $ScriptBlock -ArgumentList $DNSDomain,$RemoteDesktopUser
+
+                }
+				
+				'Workgroup' {
+                    
+                    
+                    $ScriptBlock = {
+                        
+                         Add-LocalGroupMember -SID 'S-1-5-32-555' -Member S-1-5-4
+
+                    }
+
+                    Write-Verbose "Adding NT AUTHORITY\INTERACTIVE to the Remote Desktop Users-Group"
+                    Invoke-Command -VMName $VMName -Credential $Cred -ScriptBlock $ScriptBlock -ArgumentList $DNSDomain,$RemoteDesktopUser
+
+                }
+				
+
+                Default {
+                    
+                }
+            }
+        }
+    }
+
+    
+
+    ##################
+
+  
+    if($Template -like "*OOBE*"){
+
+        Write-Verbose ""
+        Write-Verbose "Exporting AutoPilotHWID and starting OOBE"
+        $ScriptBlock = {
+
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+            New-Item -Type Directory -Path "C:\HWID" -Force
+            Set-Location -Path "C:\HWID"
+            $env:Path += ";C:\Program Files\WindowsPowerShell\Scripts"
+            Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned -Force
+            Install-Script -Name Get-WindowsAutoPilotInfo -Force -Confirm:$false
+            Get-WindowsAutoPilotInfo -OutputFile AutoPilotHWID.csv
+        
+        }
+
+        Invoke-Command -VMName $VMName -Credential $Cred -ScriptBlock $ScriptBlock
+
+        if(!(Test-Path C:\IntuneHardwareHash\)){
+    
+            New-Item C:\IntuneHardwareHash\ -ItemType Directory -Force 
+        }
+
+        Invoke-Command -VMName $VMName -Credential $Cred -ScriptBlock $ScriptBlock
+
+        $ScriptBlock = {
+                        
+            Add-LocalGroupMember -SID 'S-1-5-32-555' -Member S-1-5-4
+
+        }
+
+        Invoke-Command -VMName $VMName -Credential $cred -ScriptBlock {Get-Content C:\HWID\AutoPilotHWID.csv} | Out-file C:\IntuneHardwareHash\$VMName.csv -Force
+
+        Invoke-Command -VMName $VMName -Credential $cred -ScriptBlock {Remove-Item C:\HWID\ -Recurse -Force}
+        start-sleep -Seconds 120
+        Invoke-Command -VMName $VMName -Credential $Cred -ScriptBlock {Start-Process -FilePath 'C:\Windows\System32\Sysprep\Sysprep.exe' -ArgumentList "/oobe /shutdown /quiet"}
+
+        Write-Verbose "HardwareHash exported and OOBE is done."
+
+    }else{
+    
+        Stop-VM -Name $VMname
+        Write-Verbose "VM Done"
+
+    }
 }
 
-# Create a short cut for the VM
-$linkName = "Connect to " + $VMName + ".lnk"
-Write-Host -ForegroundColor Green "Creating a shortcut to $VMName in $env:ALLUSERSPROFILE\Desktop\VMLinks\$LinkName named $linkName"
-New-TSxShortCut -SoruceFile vmconnect.exe -DestinationFile "$env:ALLUSERSPROFILE\Desktop\VMLinks\$LinkName" -Arguments "localhost $VMName" -IconDLL "$env:ProgramFiles\hyper-v\snapinabout.dll" -RunAsAdmin
-
-# Stop logging
-Write-Host -ForegroundColor Green "Stop Transcript logging"
 Stop-Transcript

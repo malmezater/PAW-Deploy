@@ -10,14 +10,34 @@ $DLL = '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntP
 Add-Type -MemberDefinition $DLL -name NativeMethods -namespace Win32
 $Process = (Get-Process PowerShell | Where-Object MainWindowTitle -like '*VM Deploy*').MainWindowHandle
 # Minimize window
-#[Win32.NativeMethods]::ShowWindowAsync($Process, 2)
+[Win32.NativeMethods]::ShowWindowAsync($Process, 2)
 
 #Get Env:
 $RootFolder = $MyInvocation.MyCommand.Path | Split-Path -Parent
 
-#Get Data
-$XMLDatafile = "$RootFolder\Config.XML"
-[XML]$XMLData = Get-Content -Path "$XMLDatafile"
+#Get LData
+$XMLLDatafile = "$RootFolder\lConfig.XML"
+[XML]$XMLLData = Get-Content -Path $XMLLDatafile
+
+switch ($XMLLData.Settings.Source)
+{
+    'local' {
+        #Get Data
+        $XMLDatafile = $XMLLData.Settings.XMLFile
+        [XML]$XMLData = Get-Content -Path "$RootFolder\$XMLDatafile"
+    }
+    'http' {
+        #Get Data
+        $XMLDatafile = $XMLLData.Settings.XMLFile
+        [XML]$XMLData = (New-Object System.Net.WebClient).DownloadString($XMLDatafile)
+    }
+    'unc' {
+        #Get Data
+        $XMLDatafile = $XMLLData.Settings.XMLFile
+        [XML]$XMLData = (New-Object System.Net.WebClient).DownloadString($XMLDatafile)
+    }
+    Default {}
+}
 
 #Get Templates
 $Templates = $XMLData.Settings.Templates.Template | Where-Object Active -EQ $True
@@ -36,12 +56,12 @@ $Font = 'Consolas,10'
 
 $Form                            = New-Object system.Windows.Forms.Form
 $Form.ClientSize                 = '800,600'
-$Form.text                       = "Priviliged Access Workstation deployment tool 1.0"
+$Form.text                       = "VM Deploy 1.0"
 $Form.TopMost                    = $false
 
 $PictureBox1                     = New-Object system.Windows.Forms.PictureBox
-$PictureBox1.width               = 150
-$PictureBox1.height              = 150
+$PictureBox1.width               = 250
+$PictureBox1.height              = 250
 $PictureBox1.location            = New-Object System.Drawing.Point(630,0)
 $PictureBox1.imageLocation       = "$RootFolder\image.png"
 $PictureBox1.SizeMode            = [System.Windows.Forms.PictureBoxSizeMode]::zoom
@@ -52,6 +72,7 @@ $OkButton.width                  = 60
 $OkButton.height                 = 30
 $OkButton.location               = New-Object System.Drawing.Point(630,550)
 $OkButton.Font                   = $Font
+$OkButton.Enabled                = $False
 
 $CancelButton                    = New-Object system.Windows.Forms.Button
 $CancelButton.text               = "Close"
@@ -79,8 +100,9 @@ $TemplateLabel.Font              = $Font
 $TemplateListbox                 = New-Object system.Windows.Forms.ListBox
 $TemplateListbox.text            = "TemplateSelection"
 $TemplateListbox.width           = 350
-$TemplateListbox.height          = 70
+$TemplateListbox.height          = 120
 $TemplateListbox.location        = New-Object System.Drawing.Point(100,30)
+
 
 $VMnameLabel                     = New-Object system.Windows.Forms.Label
 $VMnameLabel.text                = "VMname"
@@ -147,6 +169,22 @@ $LPasswordTextBox.location       = New-Object System.Drawing.Point(100,340)
 $LPasswordTextBox.Font           = $Font
 $LPasswordTextBox.PasswordChar = "*"
 $LPasswordTextBox.Text           = $null
+
+$RDSNameLabel                    = New-Object system.Windows.Forms.Label
+$RDSNameLabel.text               = "RDP User"
+$RDSNameLabel.AutoSize           = $true
+$RDSNameLabel.width              = 25
+$RDSNameLabel.height             = 10
+$RDSNameLabel.location           = New-Object System.Drawing.Point(20,370)
+$RDSNameLabel.Font               = $Font
+
+$RDSNameTextBox                  = New-Object system.Windows.Forms.TextBox
+$RDSNameTextBox.multiline        = $false
+$RDSNameTextBox.width            = 150
+$RDSNameTextBox.height           = 20
+$RDSNameTextBox.location         = New-Object System.Drawing.Point(100,370)
+$RDSNameTextBox.Font             = $Font
+$RDSNameTextBox.Text             = $null
 
 $IPAddressLabel                  = New-Object system.Windows.Forms.Label
 $IPAddressLabel.text             = "IPAddress"
@@ -255,15 +293,32 @@ foreach($item in $TemplatesSelection){
     [void] $TemplateListbox.Items.Add($item)
 }
 
-$Form.controls.AddRange(@($OkButton,$CancelButton,$SorceServerLabel,$TemplateLabel,$IPAddressLabel,$SubnetLabel,$DNS1Label,$DNS2Label,$GatewayLabel,$VlanLabel,$TemplateListbox,$IPAddressTextBox,$SubnetTextBox,$DNS1TextBox,$DNS2TextBox,$GatewayTextBox,$VlanTextBox,$result,$PictureBox1,$VMnameLabel,$VMnameTextBox,$DJANameLabel,$DJANameTextBox,$DJAPasswordLabel,$DJAPasswordTextBox,$LPasswordLabel,$LPasswordTextBox))
+$Form.controls.AddRange(@($OkButton,$CancelButton,$SorceServerLabel,$TemplateLabel,$IPAddressLabel,$SubnetLabel,$DNS1Label,$DNS2Label,$GatewayLabel,$VlanLabel,$TemplateListbox,$IPAddressTextBox,$SubnetTextBox,$DNS1TextBox,$DNS2TextBox,$GatewayTextBox,$VlanTextBox,$result,$PictureBox1,$VMnameLabel,$VMnameTextBox,$DJANameLabel,$DJANameTextBox,$DJAPasswordLabel,$DJAPasswordTextBox,$LPasswordLabel,$LPasswordTextBox,$RDSNameLabel,$RDSNameTextBox))
 
 #region gui events {
 $OkButton.Add_Click({ OkButtonSelected })
 $CancelButton.Add_Click({ CancelButtonSelected })
 $TemplateListbox.Add_SelectedValueChanged({TemplateListboxChanged})
+$LPasswordTextBox.Add_TextChanged({TextboxChanged})
 #endregion events }
 
 #endregion GUI }
+
+
+Function TextboxChanged{
+
+If($LPasswordTextBox.Text.Length -ge 1){
+
+    $OkButton.Enabled = "True"
+
+}else{
+
+    $OkButton.Enabled = $False
+
+}
+
+}
+
 Function TemplateListboxChanged
 {
     #Get Data
@@ -272,11 +327,11 @@ Function TemplateListboxChanged
     $SelectedTemplate = $($TemplateListbox.SelectedItem)
     $TemplateData = $XMLData.Settings.Templates.Template | Where-Object Name -EQ $SelectedTemplate
 
-    #$result.text = "Selected Template is $SelectedTemplate"
-    #$result.text += "`r`n" + "MachineObjectOU is now $($TemplateData.MachineObjectOU)"
-    #$result.text += "`r`n" + "NameSuffix is now $($TemplateData.NameSuffix)"
+    $result.text = "Selected Template is $SelectedTemplate"
+    $result.text += "`r`n" + "MachineObjectOU is now $($TemplateData.MachineObjectOU)"
+    $result.text += "`r`n" + "NameSuffix is now $($TemplateData.NameSuffix)"
 
-    $VMnameTextBox.Text = $env:COMPUTERNAME + "-" + $TemplateData.NameSuffix + $RandomName
+    $VMnameTextBox.Text = $TemplateData.NameSuffix
     $VlanTextBox.Text = $TemplateData.vlanid
 
 }
@@ -308,6 +363,7 @@ Function OkButtonSelected
     $DomainAdmin = $($DJANameTextBox.Text)
     $DomainAdminPassword = $($DJAPasswordTextBox.text)
     $vlanid = $($VlanTextBox.Text)
+    $RemoteDesktopUser = $RDSNameTextBox.Text
 
     $DataToExport = @{
         AdminPassword=$AdminPassword
@@ -315,19 +371,25 @@ Function OkButtonSelected
     }
     $DataToExport | Export-Clixml -Path "$env:TEMP\vmdeploy.xml"
 
+    if($RemoteDesktopUser.Length -eq 0){
+        
+        $RemoteDesktopUser = "Null"
 
+    }
 
     if($DomainAdmin -eq ""){
-        $ScriptArguments = "-Template `'$Template`' -RootFolder NA -VMName $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -vlanid $vlanid -DataFromFile"
+        $ScriptArguments = "-Template `'$Template`' -RootFolder NA -VMName $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -vlanid $vlanid -DataFromFile -RemoteDesktopUser $RemoteDesktopUser"
     }
     else{
-        $ScriptArguments = "-Template `'$Template`' -RootFolder NA -VMName $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -vlanid $vlanid -DomainAdmin $DomainAdmin -DataFromFile"
+        $ScriptArguments = "-Template `'$Template`' -RootFolder NA -VMName $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -vlanid $vlanid -DomainAdmin $DomainAdmin -DataFromFile -RemoteDesktopUser $RemoteDesktopUser"
     }
-
+    write-host "starting script"
     $ScriptToRun = "$RootFolder\VMDeploy.ps1"
-    $Argument = "-NoExit $ScriptToRun $ScriptArguments"
+    $Argument = "$ScriptToRun $ScriptArguments"
     
     Start-Process PowerShell -ArgumentList "$Argument" -Verbose
     $Form.close()
 }
+
+$TemplateListbox.SelectedIndex = 0
 [void]$Form.ShowDialog()
