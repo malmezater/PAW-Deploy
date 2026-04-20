@@ -245,7 +245,7 @@ Write-Host " "
         Write-Host "========================================================"
         Write-Host " "
         
-        IF (Get-Item -Path "$env:ProgramData\DeployIT\VMDeploy\") {
+        IF (Get-Item -Path "$env:ProgramData\VMDeploy\") {
             Write-Host -Message "VM Deploy installation directory exists. Post-installation checks passed." -Level SUCCEEDED
             
         }
