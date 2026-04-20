@@ -245,7 +245,14 @@ Write-Log " "
         Write-Log "========================================================"
         Write-Log " "
         
-
+        IF (Get-Item -Path "$env:ProgramData\DeployIT\VMDeploy\") {
+            Write-Log -Message "VM Deploy installation directory exists. Post-installation checks passed." -Level SUCCEEDED
+            
+        }
+        else {
+            Write-Log -Message "VM Deploy installation directory does not exist. Post-installation checks failed." -Level WARNING
+            Exit
+        }
 
         Write-Log " "
 #endregion
