@@ -130,7 +130,7 @@ Write-Log "$ScriptName - Model: $TSModel"
 & Robocopy $ScriptDir\Source "$env:ProgramData\" /e /it /is /copyall
 
 New-Item -Path "$env:ALLUSERSPROFILE\Desktop\VMTools" -Type Directory -Force
-
+New-Item -Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\PAWDeploy" -Type Directory -Force
 New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\PAWDeploy\VM Deploy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramFiles\VMDeploy\Images\RunVMDeploy.ico" -RunAsAdmin
 New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\PAWDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramFiles\VMDeploy\Images\RemoveVM.ico" -RunAsAdmin
 
