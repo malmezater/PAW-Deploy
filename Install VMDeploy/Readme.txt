@@ -1,9 +1,9 @@
 Install command
-PowerShell -ExecutionPolicy ByPass -NoProfile -File Set_HyperV_FirewallRules.ps1
-Uninstall command
-Exit 0
+PowerShell -ExecutionPolicy ByPass -NoProfile -File install-vmdeploy.ps1
+
 Install behavior
-System
+System (prefered)
+Administrator (Works but not recommended)
 
 Detection rules
 Rules format
