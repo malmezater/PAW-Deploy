@@ -97,13 +97,13 @@ if (-not (Test-Path $RegistrySoftwareName))
 ##*===============================================
 ##* INFORMATION
 ##*===============================================
-Write-Log "========================================================"
-Write-Log "                     INFORMATION"
-Write-Log "========================================================"
-Write-Log " "
+Write-Host "========================================================"
+Write-Host "                     INFORMATION"
+Write-Host "========================================================"
+Write-Host " "
 
-Write-Log "Running File: $($MyInvocation.MyCommand.Source)"
-Write-Log " "
+Write-Host "Running File: $($MyInvocation.MyCommand.Source)"
+Write-Host " "
 
 #endregion
 
@@ -129,89 +129,89 @@ Write-Log " "
 		##*===============================================
 		##* PRE-INSTALLATION
 		##*===============================================
-        Write-Log "========================================================"
-        Write-Log "                    PRE-INSTALLATION"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "                    PRE-INSTALLATION"
+        Write-Host "========================================================"
+        Write-Host " "
 
 
 
-        Write-Log " "
+        Write-Host " "
 #endregion
 
 #region Step 1
 		##*===============================================
 		##* INSTALLATION of HyperV Feature
 		##*===============================================
-        Write-Log "========================================================"
-        Write-Log "                 Install HyperV Feature"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "                 Install HyperV Feature"
+        Write-Host "========================================================"
+        Write-Host " "
 
         IF (Get-ItemProperty -Path $RegistrySoftwareName -Name "Microsoft-Hyper-V-All" -ErrorAction SilentlyContinue) {
-            Write-Log -Message "HyperV Feature is already installed." -Level SUCCEEDED
+            Write-Host -Message "HyperV Feature is already installed." -Level SUCCEEDED
             $HyperVInstalled = $true
         }
         else {
             Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\1_Install-Features_for_PAW\Install-Features_for_PAW.ps1"
         }
 
-        Write-Log " "
+        Write-Host " "
 #endregion
 
 #region Step 2
 		##*===============================================
 		##* Install VMDeploy Configuration
 		##*===============================================
-        Write-Log "========================================================"
-        Write-Log "             Configure VM Deploy Network"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "             Configure VM Deploy Network"
+        Write-Host "========================================================"
+        Write-Host " "
 
         IF ($HyperVInstalled -eq $true) {
-            Write-Log -Message "HyperV Feature is already installed. Setting network configuration." -Level SUCCEEDED
+            Write-Host -Message "HyperV Feature is already installed. Setting network configuration." -Level SUCCEEDED
             Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\2_Install_VMDeploy-configuration\Configure-PAWNetwork.ps1"
             $PAWNetworkConfigured = $true
         }
         else {
-            Write-Log -Message "HyperV Feature is not installed. Cannot set network configuration." -Level WARNING
+            Write-Host -Message "HyperV Feature is not installed. Cannot set network configuration." -Level WARNING
             Exit
         }
 
-        Write-Log " "
+        Write-Host " "
 
-        Write-Log "========================================================"
-        Write-Log "            Set Firewall Rules for VM Deploy"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "            Set Firewall Rules for VM Deploy"
+        Write-Host "========================================================"
+        Write-Host " "
 
         IF ($PAWNetworkConfigured -eq $true) {
-            Write-Log -Message "PAW Network is configured. Setting firewall rules." -Level SUCCEEDED
+            Write-Host -Message "PAW Network is configured. Setting firewall rules." -Level SUCCEEDED
             Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\2_Install_VMDeploy-configuration\Set-FirewallRules.ps1"
             $FirewallRulesSet = $true
         }
         else {
-            Write-Log -Message "PAW Network is not configured. Cannot set firewall rules." -Level WARNING
+            Write-Host -Message "PAW Network is not configured. Cannot set firewall rules." -Level WARNING
             Exit
         }
 
-        Write-Log " "
+        Write-Host " "
 
-        Write-Log "========================================================"
-        Write-Log "                  Add HyperV User"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "                  Add HyperV User"
+        Write-Host "========================================================"
+        Write-Host " "
 
         IF ($FirewallRulesSet -eq $true) {
-            Write-Log -Message "Firewall rules are set. Adding HyperV user." -Level SUCCEEDED
+            Write-Host -Message "Firewall rules are set. Adding HyperV user." -Level SUCCEEDED
             Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\2_Install_VMDeploy-configuration\Add-HyperVAdmin.ps1"
         }
         else {
-            Write-Log -Message "Firewall rules are not set. Cannot add HyperV user." -Level WARNING
+            Write-Host -Message "Firewall rules are not set. Cannot add HyperV user." -Level WARNING
             Exit
         }
 
-        Write-Log " "
+        Write-Host " "
 
 #endregion
 
@@ -219,56 +219,56 @@ Write-Log " "
 		##*===============================================
 		##* INSTALLATION
 		##*===============================================
-        Write-Log "========================================================"
-        Write-Log "                Install VM Deploy"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "                Install VM Deploy"
+        Write-Host "========================================================"
+        Write-Host " "
 
         IF (Get-LocalUser "HyperVUser" -eq $true) {
-            Write-Log -Message "HyperV user already exists. Proceeding with VM Deploy installation." -Level SUCCEEDED
+            Write-Host -Message "HyperV user already exists. Proceeding with VM Deploy installation." -Level SUCCEEDED
             Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
         }
         else {
-            Write-Log -Message "HyperV user does not exist. Cannot proceed with VM Deploy installation." -Level WARNING
+            Write-Host -Message "HyperV user does not exist. Cannot proceed with VM Deploy installation." -Level WARNING
             Exit
         }
 
-        Write-Log " "
+        Write-Host " "
 #endregion
 
 #region Post-Installation
 		##*===============================================
 		##* POST-INSTALLATION
 		##*===============================================
-        Write-Log "========================================================"
-        Write-Log "                   POST-INSTALLATION"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "                   POST-INSTALLATION"
+        Write-Host "========================================================"
+        Write-Host " "
         
         IF (Get-Item -Path "$env:ProgramData\DeployIT\VMDeploy\") {
-            Write-Log -Message "VM Deploy installation directory exists. Post-installation checks passed." -Level SUCCEEDED
+            Write-Host -Message "VM Deploy installation directory exists. Post-installation checks passed." -Level SUCCEEDED
             
         }
         else {
-            Write-Log -Message "VM Deploy installation directory does not exist. Post-installation checks failed." -Level WARNING
+            Write-Host -Message "VM Deploy installation directory does not exist. Post-installation checks failed." -Level WARNING
             Exit
         }
 
-        Write-Log " "
+        Write-Host " "
 #endregion
 
 #region Check Installation
 		##*===============================================
 		##* CHECK INSTALLATION
 		##*===============================================        
-        Write-Log "========================================================"
-        Write-Log "                   CHECK INSTALLATION"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "                   CHECK INSTALLATION"
+        Write-Host "========================================================"
+        Write-Host " "
 
         if (Get-Item -path $CheckInstallItem) {
-            Write-Log -Message "Installation finished successfully" -Level SUCCEEDED
-            Write-Log "========================================================"
+            Write-Host -Message "Installation finished successfully" -Level SUCCEEDED
+            Write-Host "========================================================"
 
             try {
                 Set-ItemProperty -Path $ApplicationKeyPath -Name "(Default)" -Value "True" -Force | Out-Null
@@ -277,12 +277,12 @@ Write-Log " "
                 Write-Error "Failed to create/update registry value for $SoftwareName."
             }
             
-        Write-Log "========================================================"
+        Write-Host "========================================================"
         Stop-Transcript
     }
     else {
-        Write-Log -Message "Installation finished unsuccessfully" -Level WARNING
-        Write-Log "========================================================"
+        Write-Host -Message "Installation finished unsuccessfully" -Level WARNING
+        Write-Host "========================================================"
         Stop-Transcript
     }
 
