@@ -61,9 +61,9 @@ if((Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-v).State -ne
 # Create VMSwitch for External access
 
 # Verify the switch
-if((Get-VMSwitch | Where-Object Name -EQ UplinkSwitch))
+if((Get-VMSwitch | Where-Object Name -EQ "Ethernet Cable"))
 {
-    Write-Host "VMSwitch UplinkSwitch already exists, will not create it again"
+    Write-Host "VMSwitch Ethernet Cable already exists, will not create it again"
     write-host "#==================================================================#"
     Write-Host "Check for registry key for $SourceFiles"
     try {

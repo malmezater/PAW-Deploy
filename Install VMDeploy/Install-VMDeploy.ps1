@@ -247,7 +247,7 @@ Write-Host " "
         
         IF (Get-Item -Path "$env:ProgramData\VMDeploy\") {
             Write-Host -Message "VM Deploy installation directory exists. Post-installation checks passed." -Level SUCCEEDED
-            
+            $CheckInstallItem = "$env:ProgramData\VMDeploy"
         }
         else {
             Write-Host -Message "VM Deploy installation directory does not exist. Post-installation checks failed." -Level WARNING

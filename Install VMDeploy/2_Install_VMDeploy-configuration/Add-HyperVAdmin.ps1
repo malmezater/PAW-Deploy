@@ -61,7 +61,7 @@ if (Get-LocalGroupMember -Name $LocalAdminGRoup | Where-Object { $_.Name -eq $Lo
 
 $username = "Hypervuser"
 
-if (Get-Localuser -Name $username) {
+if (Get-Localuser -Name $username -ErrorAction SilentlyContinue) {
     Write-host "Hypervuser already exists."
 } else {
     ##*===============================================

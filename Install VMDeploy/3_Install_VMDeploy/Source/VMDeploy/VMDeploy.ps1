@@ -399,15 +399,15 @@ Write-Host -ForegroundColor Green "Stopping $VMname"
 Stop-VM -Name $VMname
 
 # Create the folder to store shortcuts
-If((Test-Path -Path "$env:ALLUSERSPROFILE\Desktop\VMLinks") -ne $true){
-    Write-Host -ForegroundColor Green "Creating $env:ALLUSERSPROFILE\Desktop\VMLinks"
-    New-Item -Path "$env:ALLUSERSPROFILE\Desktop\VMLinks" -Type Directory -Force
+If((Test-Path -Path "C:\Users\Public\Desktop\VMLinks") -ne $true){
+    Write-Host -ForegroundColor Green "Creating C:\Users\Public\Desktop\VMLinks"
+    New-Item -Path "C:\Users\Public\Desktop\VMLinks" -Type Directory -Force
 }
 
 # Create a short cut for the VM
 $linkName = "Connect to " + $VMName + ".lnk"
-Write-Host -ForegroundColor Green "Creating a shortcut to $VMName in $env:ALLUSERSPROFILE\Desktop\VMLinks\$LinkName named $linkName"
-New-TSxShortCut -SoruceFile vmconnect.exe -DestinationFile "$env:ALLUSERSPROFILE\Desktop\VMLinks\$LinkName" -Arguments "localhost $VMName" -IconDLL "$env:ProgramFiles\hyper-v\snapinabout.dll" -RunAsAdmin
+Write-Host -ForegroundColor Green "Creating a shortcut to $VMName in C:\Users\Public\Desktop\VMLinks\$LinkName named $linkName"
+New-TSxShortCut -SoruceFile vmconnect.exe -DestinationFile "C:\Users\Public\Desktop\VMLinks\$LinkName" -Arguments "localhost $VMName" -IconDLL "$env:ProgramFiles\hyper-v\snapinabout.dll" -RunAsAdmin
 
 # Stop logging
 Write-Host -ForegroundColor Green "Stop Transcript logging"
