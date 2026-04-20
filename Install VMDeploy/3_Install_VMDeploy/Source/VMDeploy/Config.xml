@@ -4,7 +4,7 @@
   <FullName>FULL COMPANY NAME</FullName>
  </CustomerData>
  <HyperV>
-  <VMSwitch>UplinkSwitch</VMSwitch>
+  <VMSwitch>Ethernet Cable</VMSwitch>
  </HyperV>
  <Templates>
 <Template Name="Windows 11 - WORKGROUP">
@@ -16,14 +16,14 @@
 <NoCPU>2</NoCPU>
 <DynamicMem>True</DynamicMem>
 <DiskMode>Attached</DiskMode>
-<VHDFile>C:\ProgramData\DeployIT\VMDeploy\Images\Windows11.vhdx</VHDFile>
+<VHDFile>C:\ProgramData\VMDeploy\Images\Windows11.vhdx</VHDFile>
 <TimeZoneName>W. Europe Standard Time</TimeZoneName>
 <DomainOrWorkGroup>WorkGroup</DomainOrWorkGroup>
 <DNSDomain>NA</DNSDomain>
 <MachineObjectOU>NA</MachineObjectOU>
 <NameSuffix>WG</NameSuffix>
 <VLanID>0</VLanID>
-<VMSwitch>UplinkSwitch</VMSwitch>
+<VMSwitch>Ethernet Cable</VMSwitch>
 </Template>
 <Template Name="Windows 11 - Intune OOBE">
 <Active>True</Active>
@@ -34,7 +34,7 @@
 <NoCPU>2</NoCPU>
 <DynamicMem>True</DynamicMem>
 <DiskMode>Attached</DiskMode>
-<VHDFile>C:\ProgramData\DeployIT\VMDeploy\Images\Windows11.vhdx</VHDFile>
+<VHDFile>C:\ProgramData\VMDeploy\Images\Windows11.vhdx</VHDFile>
 <TimeZoneName>W. Europe Standard Time</TimeZoneName>
 <DomainOrWorkGroup>WorkGroup</DomainOrWorkGroup>
 <DNSDomain>NA</DNSDomain>
@@ -44,7 +44,7 @@
 <VMSwitch>Default Switch</VMSwitch>
 </Template>
 </Template>
-<Template Name="Linux - Kali">
+<!-- <Template Name="Linux - Kali">
 <Active>True</Active>
 <VMGen>2</VMGen>
 <Memory>2048</Memory>
@@ -53,11 +53,11 @@
 <NoCPU>2</NoCPU>
 <DynamicMem>True</DynamicMem>
 <DiskMode>Attached</DiskMode>
-<VHDFile>C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx</VHDFile>
+<VHDFile>C:\ProgramData\VMDeploy\Images\Kali.vhdx</VHDFile>
 <TimeZoneName>W. Europe Standard Time</TimeZoneName>
 <NameSuffix>Kali-</NameSuffix>
 <VLanID>0</VLanID>
 <VMSwitch>Default Switch</VMSwitch>
-</Template>
+</Template> -->
  </Templates>
 </Settings>
