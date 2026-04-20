@@ -224,7 +224,7 @@ Write-Host " "
         Write-Host "========================================================"
         Write-Host " "
 
-        IF (Get-LocalUser "HyperVUser" -eq $true) {
+        IF (Get-LocalUser "Hypervuser" -ErrorAction SilentlyContinue) {
             Write-Host -Message "HyperV user already exists. Proceeding with VM Deploy installation." -Level SUCCEEDED
             Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
         }
