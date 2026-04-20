@@ -130,7 +130,7 @@ Write-Log "$ScriptName - Model: $TSModel"
 & Robocopy $ScriptDir\Source C:\ /e
 
 New-Item -Path "$env:ALLUSERSPROFILE\Desktop\VMTools" -Type Directory -Force
-
-New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ALLUSERSPROFILE\Desktop\VMTools\VM Deploy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramFiles\hyper-v\snapinabout.dll" -RunAsAdmin
-New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ALLUSERSPROFILE\Desktop\VMTools\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramFiles\hyper-v\snapinabout.dll" -RunAsAdmin
+New-Item -Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\PAWDeploy" -Type Directory -Force
+New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\PAWDeploy\VM Deploy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramFiles\hyper-v\snapinabout.dll" -RunAsAdmin
+New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\PAWDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramFiles\hyper-v\snapinabout.dll" -RunAsAdmin
 Copy-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Administrative Tools\Hyper-V Manager.lnk" -Destination "$env:ALLUSERSPROFILE\Desktop\VMTools\Hyper-V Manager.lnk" -Force
