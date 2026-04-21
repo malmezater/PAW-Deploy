@@ -19,7 +19,7 @@ Param
     [parameter(Position=4,mandatory=$False)]
     [ValidateNotNullOrEmpty()]
     [String]
-    $VMLocation="C:\Programdata\DeployIT\VMDeploy\VMs",
+    $VMLocation="C:\Programdata\VMDeploy\VMs",
 
     [parameter(Position=5,mandatory=$False)]
     [String]
@@ -97,7 +97,7 @@ Function New-TSxShortCut{
     }
 }
 
-Start-Transcript -Path "C:\ProgramData\DeployIT\logs\$VMName-VMDeploy.log" -Append
+Start-Transcript -Path "C:\ProgramData\logs\$VMName-VMDeploy.log" -Append
 
 #Get LData
 $XMLLDatafile = "$RootFolder\lConfig.XML"
