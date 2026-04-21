@@ -2,7 +2,7 @@
 ##* Custom variables
 ##*===============================================
 
-$ApplicationName = "PAWDeploy"
+$ApplicationName = "VMDeploy"
 
 ##*===============================================
 ##* Static variables

@@ -35,7 +35,7 @@
 ##* Configuration Variables
 ##*===============================================
 
-$SoftwareName = "PAWDeploy" <# Enter the name of the software you want to install #>
+$SoftwareName = "VMDeploy" <# Enter the name of the software you want to install #>
 
 ##*===============================================
 ##* Static VARIABLES

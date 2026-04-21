@@ -1,4 +1,4 @@
-﻿$ApplicationName = "PAWDeploy"
+﻿$ApplicationName = "VMDeploy"
 $SourceFiles = "HyperV"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistryApplicationName = "$RegistryPath\$ApplicationName"
