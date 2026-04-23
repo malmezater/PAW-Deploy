@@ -97,7 +97,7 @@ Function New-TSxShortCut{
     }
 }
 
-Start-Transcript -Path "C:\ProgramData\logs\$VMName-VMDeploy.log" -Append
+Start-Transcript -Path "C:\ProgramData\VMDeploy\logs\$VMName-VMDeploy.log" -Append
 
 #Get LData
 $XMLLDatafile = "$RootFolder\lConfig.XML"
