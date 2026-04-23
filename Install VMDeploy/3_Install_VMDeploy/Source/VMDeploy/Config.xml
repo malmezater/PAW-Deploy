@@ -43,7 +43,6 @@
 <VLanID>0</VLanID>
 <VMSwitch>Default Switch</VMSwitch>
 </Template>
-</Template>
 <!-- <Template Name="Linux - Kali">
 <Active>True</Active>
 <VMGen>2</VMGen>

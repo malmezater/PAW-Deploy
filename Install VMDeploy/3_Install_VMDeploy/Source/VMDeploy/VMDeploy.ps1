@@ -561,3 +561,4 @@ desktopheight:i:1200
 }
 
 Stop-Transcript
+Exit
