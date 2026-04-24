@@ -236,6 +236,28 @@ Write-Host " "
         Write-Host " "
 #endregion
 
+#region Step 4
+		##*===============================================
+		##* Download
+		##*===============================================
+        Write-Host "========================================================"
+        Write-Host "                Download VHDX"
+        Write-Host "========================================================"
+        Write-Host " "
+
+        IF (Get-Item -Path $Env:Programdata\VMDeploy\Images -ErrorAction SilentlyContinue) {
+            Write-Host -Message "Downloading Windows 11 VHDX Template to VMDeploy Image folder." -Level SUCCEEDED
+            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\4_Download_Windows\download-vhdx.ps1"
+        }
+        else {
+            Write-Host -Message "Image folder is missing, creating Image folder and ask user to download VHDX" -Level WARNING
+            New-Item -Path "$Env:Programdata\VMDeploy" -Name "Images" -ItemType Directory -ErrorAction SilentlyContinue -Confirm:$true
+            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\4_Download_Windows\download-vhdx.ps1"
+        }
+
+        Write-Host " "
+#endregion
+
 #region Post-Installation
 		##*===============================================
 		##* POST-INSTALLATION
@@ -279,11 +301,13 @@ Write-Host " "
             
         Write-Host "========================================================"
         Stop-Transcript
+        Exit 0
     }
     else {
         Write-Host -Message "Installation finished unsuccessfully" -Level WARNING
         Write-Host "========================================================"
         Stop-Transcript
+        Exit 1
     }
 
 #endregion
