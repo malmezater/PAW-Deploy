@@ -142,12 +142,12 @@ Write-Host " "
         Write-Host " "
 #endregion
 
-#region Installation
+#region Download VHDX
 		##*===============================================
-		##* INSTALLATION
+		##* DOWNLOAD VHDX
 		##*===============================================
         Write-Host "========================================================"
-        Write-Host "                     INSTALLATION"
+        Write-Host "                     DOWNLOAD VHDX"
         Write-Host "========================================================"
         Write-Host " "
 
@@ -157,8 +157,25 @@ Write-Host " "
             {
                 New-Item "$env:ProgramData\$SoftwareName\Images" -ItemType Directory -Force
             }
+            Write-Host "========================================================"           -ForegroundColor Yellow
+            Write-Host "            This Download may take a while"                         -ForegroundColor Yellow
+            Write-Host "========================================================"           -ForegroundColor Yellow
+            
+            Write-Host "========================================================"           -ForegroundColor Yellow
+            Write-Host "           Download size is approximately 15GB"                     -ForegroundColor Yellow
+            Write-Host "========================================================"           -ForegroundColor Yellow
+            
+            Write-Host "========================================================"           -ForegroundColor Green
+            Write-Host "           Downloading Windows 11 VHDX Template."                   -ForegroundColor Green
+            Write-Host "========================================================"           -ForegroundColor Green
+            Write-Host " "                                                                  -ForegroundColor Green
+            
+            Invoke-WebRequest -Uri "https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx" -OutFile "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
 
-            Start-BitsTransfer -Source https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx -Destination "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
+            Write-Host "========================================================"           -ForegroundColor Green
+            Write-Host "           Download completed successfully."                        -ForegroundColor Green
+            Write-Host "========================================================"           -ForegroundColor Green
+            Write-Host " "                                                                  -ForegroundColor Green
         }
         catch
         {
