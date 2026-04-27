@@ -173,8 +173,22 @@ Write-Host " "
             $DownloadUrl = 'https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx'
             $Filename = $DownloadUrl | Split-Path -Leaf
             $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
-            $WebClient = New-Object Net.WebClient
-            $WebClient.DownloadFile($DownloadUrl, $DownloadPath)
+            
+            Write-Host "Starting download with progress indication..." -ForegroundColor Green
+            Write-Host "Source: $DownloadUrl" -ForegroundColor Cyan
+            Write-Host "Destination: $DownloadPath" -ForegroundColor Cyan
+            Write-Host " " -ForegroundColor Green
+            
+            Start-BitsTransfer -Source $DownloadUrl -Destination $DownloadPath -DisplayName "Downloading Windows 11 VHDX" -Description "Downloading Windows 11 VHDX Template (~15GB)"
+            
+            # Verify download completed successfully
+            if (Test-Path $DownloadPath) {
+                $fileSize = (Get-Item $DownloadPath).Length
+                Write-Host "Download completed successfully!" -ForegroundColor Green
+                Write-Host "File size: $([math]::Round($fileSize / 1GB, 2)) GB" -ForegroundColor Green
+            } else {
+                throw "Download failed - file not found at destination"
+            }
 
             Write-Host "========================================================"           -ForegroundColor Green
             Write-Host "           Download completed successfully."                        -ForegroundColor Green
