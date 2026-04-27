@@ -228,7 +228,11 @@ Write-Host " "
             Write-Host -Message "HyperV user already exists. Proceeding with VM Deploy installation." -Level SUCCEEDED
             New-ItemProperty -Path $ApplicationKeyPath -Name "VMDeployVersion" -Value "Uninstalled" -PropertyType String -Force | Out-Null
             IF (!(Get-ItemPropertyValue -Path $ApplicationKeyPath -Name "VMDeployVersion" -ErrorAction SilentlyContinue) -eq $ScriptVersion){
+                Write-Host "Older version of VMDeploy is installed, reinstalling to newer version."                
                 Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
+            }
+            else {
+                Write-Host "Latest version of VMDeploy is already installed."
             }
         }
         else {
