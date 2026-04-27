@@ -151,7 +151,19 @@ Write-Host " "
         Write-Host "========================================================"
         Write-Host " "
 
-        Start-BitsTransfer -Source "https://download.nvxo.se/vmdeploy/vhdx/windows11.vhdx" -Destination "$env:ProgramData\$SoftwareName\Windows11.vhdx"
+        try
+        {
+            if(!(test-path "$env:ProgramData\$SoftwareName\Images"))
+            {
+                New-Item "$env:ProgramData\$SoftwareName\Images" -ItemType Directory -Force
+            }
+
+            Start-BitsTransfer -Source https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx -Destination "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
+        }
+        catch
+        {
+            Exit 1
+        }        
 
         Write-Host " "
 #endregion
@@ -179,7 +191,7 @@ Write-Host " "
         Write-Host "========================================================"
         Write-Host " "
 
-        if (Get-Item -path "$env:ProgramData\$SoftwareName\Windows11.vhdx") {
+        if (Get-Item -path "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx") {
             Write-Host -Message "Installation finished successfully" -Level SUCCEEDED
             Write-Host "========================================================"
 

@@ -175,7 +175,7 @@ Write-Host " "
         }
         else {
             Write-Host -Message "HyperV Feature is not installed. Cannot set network configuration." -Level WARNING
-            Exit
+            Exit 1
         }
 
         Write-Host " "
@@ -192,7 +192,7 @@ Write-Host " "
         }
         else {
             Write-Host -Message "PAW Network is not configured. Cannot set firewall rules." -Level WARNING
-            Exit
+            Exit 1
         }
 
         Write-Host " "
@@ -208,7 +208,7 @@ Write-Host " "
         }
         else {
             Write-Host -Message "Firewall rules are not set. Cannot add HyperV user." -Level WARNING
-            Exit
+            Exit 1
         }
 
         Write-Host " "
@@ -227,17 +227,17 @@ Write-Host " "
         IF (Get-LocalUser "Hypervuser" -ErrorAction SilentlyContinue) {
             Write-Host -Message "HyperV user already exists. Proceeding with VM Deploy installation." -Level SUCCEEDED
             New-ItemProperty -Path $ApplicationKeyPath -Name "VMDeployVersion" -Value "Uninstalled" -PropertyType String -Force | Out-Null
-            IF (!(Get-ItemPropertyValue -Path $ApplicationKeyPath -Name "VMDeployVersion" -ErrorAction SilentlyContinue) -eq $ScriptVersion){
-                Write-Host "Older version of VMDeploy is installed, reinstalling to newer version."                
-                Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
-            }
-            else {
-                Write-Host "Latest version of VMDeploy is already installed."
-            }
+                IF (!(Get-ItemPropertyValue -Path $ApplicationKeyPath -Name "VMDeployVersion" -ErrorAction SilentlyContinue) -eq $ScriptVersion){
+                    Write-Host "Older version of VMDeploy is installed, reinstalling to newer version."                
+                    Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
+                }
+                else {
+                    Write-Host "Latest version of VMDeploy is already installed."
+                }
         }
         else {
             Write-Host -Message "HyperV user does not exist. Cannot proceed with VM Deploy installation." -Level WARNING
-            Exit
+            Exit 1
         }
 
         Write-Host " "
@@ -252,14 +252,13 @@ Write-Host " "
         Write-Host "========================================================"
         Write-Host " "
 
-        IF (Get-Item -Path $Env:Programdata\VMDeploy\Images -ErrorAction SilentlyContinue) {
+        IF (!(Get-Item -Path $Env:Programdata\VMDeploy\Images -ErrorAction SilentlyContinue)) {
             Write-Host -Message "Downloading Windows 11 VHDX Template to VMDeploy Image folder." -Level SUCCEEDED
             Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\4_Download_Windows_VHDX\download-vhdx.ps1"
         }
         else {
-            Write-Host -Message "Image folder is missing, creating Image folder and ask user to download VHDX" -Level WARNING
-            New-Item -Path "$Env:Programdata\VMDeploy" -Name "Images" -ItemType Directory -ErrorAction SilentlyContinue -Confirm:$true
-            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\4_Download_Windows_VHDX\download-vhdx.ps1"
+            Write-Host -Message "Image folder is missing, problems to create folder" -Level WARNING
+            Exit 1
         }
 
         Write-Host " "
@@ -280,7 +279,7 @@ Write-Host " "
         }
         else {
             Write-Host -Message "VM Deploy installation directory does not exist. Post-installation checks failed." -Level WARNING
-            Exit
+            Exit 1
         }
 
         Write-Host " "

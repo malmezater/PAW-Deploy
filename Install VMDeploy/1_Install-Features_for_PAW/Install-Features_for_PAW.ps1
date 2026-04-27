@@ -108,7 +108,6 @@ do {
 if ($AllFeaturesEnabled -or $RemainingAttempts -eq 0) {
     Write-Host "Reboot required. Exiting with code 1641."
     Stop-Transcript
-    Restart-Computer -Force -Confirm:$false
     exit 1641
 } else {
     Write-Host "Not all features enabled and retries remain. No reboot required."
