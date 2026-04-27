@@ -251,14 +251,8 @@ Write-Host " "
         Write-Host "========================================================"
         Write-Host " "
 
-        IF (!(Get-Item -Path $Env:Programdata\VMDeploy\Images -ErrorAction SilentlyContinue)) {
             Write-Host -Message "Downloading Windows 11 VHDX Template to VMDeploy Image folder." -Level SUCCEEDED
             Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\4_Download_Windows_VHDX\download-vhdx.ps1"
-        }
-        else {
-            Write-Host -Message "Image folder is missing, problems to create folder" -Level WARNING
-            Exit 1
-        }
 
         Write-Host " "
 #endregion
