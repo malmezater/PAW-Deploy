@@ -226,7 +226,7 @@ Write-Host " "
 
         IF (Get-LocalUser "Hypervuser" -ErrorAction SilentlyContinue) {
             Write-Host -Message "HyperV user already exists. Proceeding with VM Deploy installation." -Level SUCCEEDED
-            New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "" -PropertyType String -Force | Out-Null
+            New-ItemProperty -Path $ApplicationKeyPath -Name "VMDeployVersion" -Value "Uninstalled" -PropertyType String -Force | Out-Null
             IF (!(Get-ItemPropertyValue -Path $ApplicationKeyPath -Name "VMDeployVersion" -ErrorAction SilentlyContinue) -eq $ScriptVersion){
                 Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
             }
