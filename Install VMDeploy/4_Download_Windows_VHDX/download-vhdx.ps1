@@ -151,7 +151,7 @@ Write-Log " "
         Write-Log "========================================================"
         Write-Log " "
 
-        Start-BitsTransfer -Source "" -Destination "$env:ProgramData\$SoftwareName\Windows11.vhdx"
+        Start-BitsTransfer -Source "https://download.nvxo.se/vmdeploy/vhdx/windows11.vhdx" -Destination "$env:ProgramData\$SoftwareName\Windows11.vhdx"
 
         Write-Log " "
 #endregion
@@ -179,12 +179,12 @@ Write-Log " "
         Write-Log "========================================================"
         Write-Log " "
 
-        if (Get-Item -path "$ImagePath") {
+        if (Get-Item -path "$env:ProgramData\$SoftwareName\Windows11.vhdx") {
             Write-Log -Message "Installation finished successfully" -Level SUCCEEDED
             Write-Log "========================================================"
 
         try {
-            New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "Win1125H2" -PropertyType String -Force | Out-Null
+            New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "Win1122H2" -PropertyType String -Force | Out-Null
             Write-Host "Registry value for $SourceFiles created/updated successfully."
         } catch {
             Write-Error "Failed to create/update registry value for $SourceFiles."
