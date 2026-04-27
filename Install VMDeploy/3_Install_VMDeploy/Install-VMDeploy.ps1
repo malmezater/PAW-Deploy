@@ -149,7 +149,7 @@ New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Mi
 if  (Get-Item -Path "$Env:ProgramData\VMDeploy" -ErrorAction SilentlyContinue) {
 
     try {
-        New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVerison -PropertyType String -Force | Out-Null
+        Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVerison -Force | Out-Null
         Write-Host "Registry value for $SourceFiles created/updated successfully."
     } catch {
         Write-Error "Failed to create/update registry value for $SourceFiles."
