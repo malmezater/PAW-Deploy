@@ -98,13 +98,13 @@ if (-not (Test-Path $RegistrySoftwareName))
 ##*===============================================
 ##* INFORMATION
 ##*===============================================
-Write-Log "========================================================"
-Write-Log "                     INFORMATION"
-Write-Log "========================================================"
-Write-Log " "
+Write-Host "========================================================"
+Write-Host "                     INFORMATION"
+Write-Host "========================================================"
+Write-Host " "
 
-Write-Log "Running File: $($MyInvocation.MyCommand.Source)"
-Write-Log " "
+Write-Host "Running File: $($MyInvocation.MyCommand.Source)"
+Write-Host " "
 
 #endregion
 
@@ -130,58 +130,58 @@ Write-Log " "
 		##*===============================================
 		##* PRE-INSTALLATION
 		##*===============================================
-        Write-Log "========================================================"
-        Write-Log "                    PRE-INSTALLATION"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "                    PRE-INSTALLATION"
+        Write-Host "========================================================"
+        Write-Host " "
 
 
 
 
 
-        Write-Log " "
+        Write-Host " "
 #endregion
 
 #region Installation
 		##*===============================================
 		##* INSTALLATION
 		##*===============================================
-        Write-Log "========================================================"
-        Write-Log "                     INSTALLATION"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "                     INSTALLATION"
+        Write-Host "========================================================"
+        Write-Host " "
 
         Start-BitsTransfer -Source "https://download.nvxo.se/vmdeploy/vhdx/windows11.vhdx" -Destination "$env:ProgramData\$SoftwareName\Windows11.vhdx"
 
-        Write-Log " "
+        Write-Host " "
 #endregion
 
 #region Post-Installation
 		##*===============================================
 		##* POST-INSTALLATION
 		##*===============================================
-        Write-Log "========================================================"
-        Write-Log "                   POST-INSTALLATION"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "                   POST-INSTALLATION"
+        Write-Host "========================================================"
+        Write-Host " "
         
 
 
-        Write-Log " "
+        Write-Host " "
 #endregion
 
 #region Check Installation
 		##*===============================================
 		##* CHECK INSTALLATION
 		##*===============================================        
-        Write-Log "========================================================"
-        Write-Log "                   CHECK INSTALLATION"
-        Write-Log "========================================================"
-        Write-Log " "
+        Write-Host "========================================================"
+        Write-Host "                   CHECK INSTALLATION"
+        Write-Host "========================================================"
+        Write-Host " "
 
         if (Get-Item -path "$env:ProgramData\$SoftwareName\Windows11.vhdx") {
-            Write-Log -Message "Installation finished successfully" -Level SUCCEEDED
-            Write-Log "========================================================"
+            Write-Host -Message "Installation finished successfully" -Level SUCCEEDED
+            Write-Host "========================================================"
 
         try {
             New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "Win1122H2" -PropertyType String -Force | Out-Null
@@ -190,12 +190,12 @@ Write-Log " "
             Write-Error "Failed to create/update registry value for $SourceFiles."
         }
             
-        Write-Log "========================================================"
+        Write-Host "========================================================"
         Stop-Transcript
     }
     else {
-        Write-Log -Message "Installation finished unsuccessfully" -Level WARNING
-        Write-Log "========================================================"
+        Write-Host -Message "Installation finished unsuccessfully" -Level WARNING
+        Write-Host "========================================================"
         Stop-Transcript
     }
 
