@@ -169,8 +169,12 @@ Write-Host " "
             Write-Host "           Downloading Windows 11 VHDX Template."                   -ForegroundColor Green
             Write-Host "========================================================"           -ForegroundColor Green
             Write-Host " "                                                                  -ForegroundColor Green
-            
-            Invoke-WebRequest -Uri "https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx" -OutFile "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
+
+            $DownloadUrl = 'https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx'
+            $Filename = $DownloadUrl | Split-Path -Leaf
+            $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
+            $WebClient = New-Object Net.WebClient
+            $WebClient.DownloadFile($DownloadUrl, $DownloadPath)
 
             Write-Host "========================================================"           -ForegroundColor Green
             Write-Host "           Download completed successfully."                        -ForegroundColor Green
