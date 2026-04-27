@@ -48,6 +48,13 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ScriptName = Split-Path -Leaf $MyInvocation.MyCommand.Path
 $ARCHITECTURE = $env:PROCESSOR_ARCHITECTURE
 
+$ScriptVerison = "2.0.1"
+$SourceFiles = "VMDeployVersion"
+$ApplicationName = "VMDeploy"
+$RegistryPath = "HKLM:\SOFTWARE\DeployIT"
+$RegistryApplicationName = "$RegistryPath\$ApplicationName"
+$ApplicationKeyPath = "$RegistryApplicationName"
+
 #Import TSxUtility
 
 try
@@ -129,9 +136,25 @@ Write-Log "$ScriptName - Model: $TSModel"
 
 & Robocopy $ScriptDir\Source "$env:ProgramData\" /e /it /is /copyall
 
-New-Item -Path "C:\Users\Public\Desktop\VMTools" -Type Directory -Force
 New-Item -Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy" -Type Directory -Force
-New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Deploy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\Images\VMDeploy.ico" -RunAsAdmin
-New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\Images\VMDestroy.ico" -RunAsAdmin
-
+New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Deploy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\VMDeploy.ico" -RunAsAdmin
+New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\VMDestroy.ico" -RunAsAdmin
+#New-Item -Path "C:\Users\Public\Desktop\VMTools" -Type Directory -Force
 #Copy-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Administrative Tools\Hyper-V Manager.lnk" -Destination "$env:ALLUSERSPROFILE\Desktop\VMTools\Hyper-V Manager.lnk" -Force
+
+#*===============================================
+#* Check if installation file exist
+#*===============================================
+
+if  (Get-Item -Path "$Env:ProgramData\VMDeploy" -ErrorAction SilentlyContinue) {
+
+    try {
+        New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVerison -PropertyType String -Force | Out-Null
+        Write-Host "Registry value for $SourceFiles created/updated successfully."
+    } catch {
+        Write-Error "Failed to create/update registry value for $SourceFiles."
+    }
+}
+else {
+    Write-Warning "The HyperVUser was not found, exit"
+}

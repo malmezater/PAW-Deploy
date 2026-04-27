@@ -40,7 +40,7 @@ $SoftwareName = "VMDeploy" <# Enter the name of the software you want to install
 ##*===============================================
 ##* Static VARIABLES
 ##*===============================================
-
+$ScriptVersion = "2.0.1"
 $DeployIT = "$env:ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $DeployITDownload = "$DeployIT\Download"
@@ -226,7 +226,9 @@ Write-Host " "
 
         IF (Get-LocalUser "Hypervuser" -ErrorAction SilentlyContinue) {
             Write-Host -Message "HyperV user already exists. Proceeding with VM Deploy installation." -Level SUCCEEDED
-            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
+            IF ((Get-ItemPropertyValue -Path $ApplicationKeyPath -Name "VMDeployVersion") -eq $ScriptVersion){
+                Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
+            }
         }
         else {
             Write-Host -Message "HyperV user does not exist. Cannot proceed with VM Deploy installation." -Level WARNING
