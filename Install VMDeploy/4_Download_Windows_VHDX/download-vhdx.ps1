@@ -42,6 +42,7 @@ $SoftwareName = "VMDeploy" <# Enter the name of the software you want to install
 ##*===============================================
 $SourceFiles = "WindowsVHDX"
 $VHDXVersion = "Win11-25H2"
+$DownloadUrl = "https://malmesaterarchive.blob.core.windows.net/vmdeply-temp/VM-Temp/Win-Template.vhdx"
 $DeployIT = "$env:ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $DeployITDownload = "$DeployIT\Download"
@@ -171,7 +172,6 @@ Write-Host " "
             Write-Host "           Updating Windows 11 VHDX Template."           -ForegroundColor Yellow
             Write-Host "========================================================" -ForegroundColor Yellow
 
-            $DownloadUrl  = 'https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx'
             $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
             $WebClient    = New-Object Net.WebClient
             $WebClient.DownloadFile($DownloadUrl, $DownloadPath)
@@ -186,7 +186,6 @@ Write-Host " "
             Write-Host "           Downloading Windows 11 VHDX Template."            -ForegroundColor Yellow
             Write-Host "========================================================" -ForegroundColor Yellow
 
-            $DownloadUrl  = 'https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx'
             $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
             $WebClient    = New-Object Net.WebClient
             $WebClient.DownloadFile($DownloadUrl, $DownloadPath)
