@@ -125,58 +125,70 @@ Write-Host " "
     ##* CUSTOM FUNCTIONS
     ##*===============================================
 
-    function Download-FileWithProgress {
-        param (
-            [Parameter(Mandatory=$true)]
-            [string]$Url,
+<# 
+Download file with AzCopy if available, otherwise fallback to Invoke-WebRequest
+#>
+function Download-WithAzCopy {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$SourceUrl,
 
-            [Parameter(Mandatory=$true)]
-            [string]$DestinationPath
-        )
+        [Parameter(Mandatory=$true)]
+        [string]$DestinationPath
+    )
 
-        try {
-            # Ensure TLS 1.2+
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $azcopy = Get-AzCopyIfNeeded
 
-            # Create request
-            $request = [System.Net.HttpWebRequest]::Create($Url)
-            $request.Method = "GET"
+    Write-Host "Starting download with AzCopy..."
 
-            $response = $request.GetResponse()
-            $totalBytes = $response.ContentLength
+    & $azcopy copy $SourceUrl $DestinationPath --overwrite=true
 
-            $responseStream = $response.GetResponseStream()
-            $fileStream = [System.IO.File]::Create($DestinationPath)
-
-            $buffer = New-Object byte[] 8192
-            $totalRead = 0
-
-            while (($read = $responseStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-                $fileStream.Write($buffer, 0, $read)
-                $totalRead += $read
-
-                if ($totalBytes -gt 0) {
-                    $percent = [math]::Round(($totalRead / $totalBytes) * 100, 2)
-
-                    Write-Progress `
-                        -Activity "Downloading file" `
-                        -Status "$percent% complete ($totalRead / $totalBytes bytes)" `
-                        -PercentComplete $percent
-                }
-            }
-
-            Write-Progress -Activity "Downloading file" -Completed
-
-            $fileStream.Close()
-            $responseStream.Close()
-            $response.Close()
-
-            Write-Host "Download completed: $DestinationPath"
-        }
-        catch {
-            Write-Error "Download failed: $_"
-        }
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Download completed successfully"
+    } else {
+        Write-Error "AzCopy failed with exit code $LASTEXITCODE"
     }
+}
+<#
+Install AzCopy if not already installed and return the path to the executable
+#>
+function Get-AzCopyIfNeeded {
+    param (
+        [string]$InstallPath = "$env:LOCALAPPDATA\AzCopy"
+    )
+
+    $azcopyExe = Join-Path $InstallPath "azcopy.exe"
+
+    if (Test-Path $azcopyExe) {
+        return $azcopyExe
+    }
+
+    Write-Host "AzCopy not found. Downloading..."
+
+    $zipUrl = "https://aka.ms/downloadazcopy-v10-windows"
+    $zipPath = Join-Path $env:TEMP "azcopy.zip"
+    $extractPath = Join-Path $env:TEMP "azcopy_extract"
+
+    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
+
+    Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+
+    # Find azcopy.exe in extracted folder
+    $exe = Get-ChildItem -Path $extractPath -Recurse -Filter "azcopy.exe" | Select-Object -First 1
+
+    if (-not $exe) {
+        throw "Failed to locate azcopy.exe after extraction"
+    }
+
+    # Create install dir
+    New-Item -ItemType Directory -Path $InstallPath -Force | Out-Null
+
+    Copy-Item $exe.FullName -Destination $azcopyExe -Force
+
+    Write-Host "AzCopy installed at $azcopyExe"
+
+    return $azcopyExe
+}
 
 #endregion
 
@@ -189,9 +201,7 @@ Write-Host " "
     Write-Host "========================================================"
     Write-Host " "
 
-
-
-
+    Get-AzCopyIfNeeded
 
     Write-Host " "
 #endregion
@@ -224,8 +234,8 @@ Write-Host " "
             Write-Host "           Updating Windows 11 VHDX Template."           -ForegroundColor Yellow
             Write-Host "========================================================" -ForegroundColor Yellow
 
-            Download-FileWithProgress `
-                -Url $DownloadUrl `
+            Download-WithAzCopy `
+                -SourceUrl $DownloadUrl `
                 -DestinationPath $DownloadPath
             Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -Force | Out-Null
 
@@ -238,8 +248,8 @@ Write-Host " "
             Write-Host "           Downloading Windows 11 VHDX Template."            -ForegroundColor Yellow
             Write-Host "========================================================" -ForegroundColor Yellow
 
-            Download-FileWithProgress `
-                -Url $DownloadUrl `
+            Download-WithAzCopy `
+                -SourceUrl $DownloadUrl `
                 -DestinationPath $DownloadPath
             New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -PropertyType String -Force | Out-Null
 
