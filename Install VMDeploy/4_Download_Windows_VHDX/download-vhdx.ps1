@@ -43,6 +43,7 @@ $SoftwareName = "VMDeploy" <# Enter the name of the software you want to install
 $SourceFiles = "WindowsVHDX"
 $VHDXVersion = "Win11-25H2"
 $DownloadUrl = "https://malmesaterarchive.blob.core.windows.net/vmdeply-temp/VM-Temp/Win-Template.vhdx"
+$DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
 $DeployIT = "$env:ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $DeployITDownload = "$DeployIT\Download"
@@ -124,7 +125,58 @@ Write-Host " "
     ##* CUSTOM FUNCTIONS
     ##*===============================================
 
+    function Download-FileWithProgress {
+        param (
+            [Parameter(Mandatory=$true)]
+            [string]$Url,
 
+            [Parameter(Mandatory=$true)]
+            [string]$DestinationPath
+        )
+
+        try {
+            # Ensure TLS 1.2+
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+            # Create request
+            $request = [System.Net.HttpWebRequest]::Create($Url)
+            $request.Method = "GET"
+
+            $response = $request.GetResponse()
+            $totalBytes = $response.ContentLength
+
+            $responseStream = $response.GetResponseStream()
+            $fileStream = [System.IO.File]::Create($DestinationPath)
+
+            $buffer = New-Object byte[] 8192
+            $totalRead = 0
+
+            while (($read = $responseStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                $fileStream.Write($buffer, 0, $read)
+                $totalRead += $read
+
+                if ($totalBytes -gt 0) {
+                    $percent = [math]::Round(($totalRead / $totalBytes) * 100, 2)
+
+                    Write-Progress `
+                        -Activity "Downloading file" `
+                        -Status "$percent% complete ($totalRead / $totalBytes bytes)" `
+                        -PercentComplete $percent
+                }
+            }
+
+            Write-Progress -Activity "Downloading file" -Completed
+
+            $fileStream.Close()
+            $responseStream.Close()
+            $response.Close()
+
+            Write-Host "Download completed: $DestinationPath"
+        }
+        catch {
+            Write-Error "Download failed: $_"
+        }
+    }
 
 #endregion
 
@@ -172,9 +224,9 @@ Write-Host " "
             Write-Host "           Updating Windows 11 VHDX Template."           -ForegroundColor Yellow
             Write-Host "========================================================" -ForegroundColor Yellow
 
-            $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
-            $WebClient    = New-Object Net.WebClient
-            $WebClient.DownloadFile($DownloadUrl, $DownloadPath)
+            Download-FileWithProgress `
+                -Url $DownloadUrl `
+                -DestinationPath $DownloadPath
             Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -Force | Out-Null
 
             Write-Host "========================================================" -ForegroundColor Green
@@ -186,9 +238,9 @@ Write-Host " "
             Write-Host "           Downloading Windows 11 VHDX Template."            -ForegroundColor Yellow
             Write-Host "========================================================" -ForegroundColor Yellow
 
-            $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
-            $WebClient    = New-Object Net.WebClient
-            $WebClient.DownloadFile($DownloadUrl, $DownloadPath)
+            Download-FileWithProgress `
+                -Url $DownloadUrl `
+                -DestinationPath $DownloadPath
             New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -PropertyType String -Force | Out-Null
 
             Write-Host "========================================================" -ForegroundColor Green
