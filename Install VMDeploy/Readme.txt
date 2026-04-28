@@ -7,7 +7,7 @@ Administrator (Works but not recommended)
 User (Does not work!)
 
 Detection rules
-Creates multiplie registry values under HKLM\Software\PAWDeploy.
+Creates multiplie registry values under HKLM\Software\DeployIT\VMDeploy.
 
 Rules format
 Use a custom detection script
