@@ -4,7 +4,7 @@
   <FullName>FULL COMPANY NAME</FullName>
  </CustomerData>
  <HyperV>
-  <VMSwitch>Ethernet Cable</VMSwitch>
+  <VMSwitch>Default Switch</VMSwitch>
  </HyperV>
  <Templates>
 <Template Name="Windows 11 - WORKGROUP">
@@ -41,7 +41,7 @@
 <MachineObjectOU>NA</MachineObjectOU>
 <NameSuffix>INTUNE-</NameSuffix>
 <VLanID>0</VLanID>
-<VMSwitch>Default Switch</VMSwitch>
+<VMSwitch>Ethernet Cable</VMSwitch>
 </Template>
 <!-- <Template Name="Linux - Kali">
 <Active>True</Active>
