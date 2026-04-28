@@ -21,7 +21,7 @@ INFORMATION
 SCCM Installation:
 Add the folder "Install VMDeply" in Application Library.
 Create an application called "Install VMDeploy" or whatever you like it to be called.
-Run the "Install-VMDeploy.ps1" with the install settings above.
+Install VMDeploy with the settings above.
 
 Intune Installation:
 Use the intunewim file under "Install VMDeploy Company Portal" with the install settings above.
