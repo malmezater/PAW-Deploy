@@ -18,11 +18,13 @@ Enforce script signature check and run script silently
 No
 
 INFORMATION
-IF using SCCM/Intune company portal, recommended to remove the shortcuts created for VMDeploy. 
-This should then be started from Company Portal instead.
-
-SCCM/Intune Deployment:
+SCCM Installation:
+Add the folder "Install VMDeply" in Application Library.
 Create an application called "Install VMDeploy" or whatever you like it to be called.
 
+Recommended setup:
 To add and remove VM's, create two applications called, VMDeploy and VM-Remove (Or what ever name you like).
 Use the powershell scripts in "Company Portal" folder to launch the applications.
+
+Run as local Admin:
+Two shortcuts are created during installation, this is shortcuts to start powershell scripts to deploy or remove VM's.
