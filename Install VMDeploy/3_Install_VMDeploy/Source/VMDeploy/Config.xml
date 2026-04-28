@@ -4,7 +4,7 @@
   <FullName>FULL COMPANY NAME</FullName>
  </CustomerData>
  <HyperV>
-  <VMSwitch>Default Switch</VMSwitch>
+  <VMSwitch>Ethernet Cable</VMSwitch>
  </HyperV>
  <Templates>
 <Template Name="Windows 11 - WORKGROUP">
@@ -23,7 +23,7 @@
 <MachineObjectOU>NA</MachineObjectOU>
 <NameSuffix>WG</NameSuffix>
 <VLanID>0</VLanID>
-<VMSwitch>Ethernet Cable</VMSwitch>
+<VMSwitch>Default Switch</VMSwitch>
 </Template>
 <Template Name="Windows 11 - Intune OOBE">
 <Active>True</Active>
@@ -41,7 +41,7 @@
 <MachineObjectOU>NA</MachineObjectOU>
 <NameSuffix>INTUNE-</NameSuffix>
 <VLanID>0</VLanID>
-<VMSwitch>Ethernet Cable</VMSwitch>
+<VMSwitch>Default Switch</VMSwitch>
 </Template>
 <!-- <Template Name="Linux - Kali">
 <Active>True</Active>
