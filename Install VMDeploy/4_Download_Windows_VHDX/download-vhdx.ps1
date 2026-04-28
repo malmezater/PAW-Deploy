@@ -41,6 +41,7 @@ $SoftwareName = "VMDeploy" <# Enter the name of the software you want to install
 ##* Static VARIABLES
 ##*===============================================
 $SourceFiles = "WindowsVHDX"
+$VHDXVersion = "Win11-25H2"
 $DeployIT = "$env:ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $DeployITDownload = "$DeployIT\Download"
@@ -127,66 +128,81 @@ Write-Host " "
 #endregion
 
 #region Pre-Installation
-		##*===============================================
-		##* PRE-INSTALLATION
-		##*===============================================
-        Write-Host "========================================================"
-        Write-Host "                    PRE-INSTALLATION"
-        Write-Host "========================================================"
-        Write-Host " "
+    ##*===============================================
+    ##* PRE-INSTALLATION
+    ##*===============================================
+    Write-Host "========================================================"
+    Write-Host "                    PRE-INSTALLATION"
+    Write-Host "========================================================"
+    Write-Host " "
 
 
 
 
 
-        Write-Host " "
+    Write-Host " "
 #endregion
 
 #region Download VHDX
-		##*===============================================
-		##* DOWNLOAD VHDX
-		##*===============================================
-        Write-Host "========================================================"
-        Write-Host "                     DOWNLOAD VHDX"
-        Write-Host "========================================================"
-        Write-Host " "
+    ##*===============================================
+    ##* DOWNLOAD VHDX
+    ##*===============================================
+    Write-Host "========================================================"           -ForegroundColor Yellow
+    Write-Host "            This Download may take a while"                         -ForegroundColor Yellow
+    Write-Host "========================================================"           -ForegroundColor Yellow
+    Write-Host "========================================================" -ForegroundColor Yellow
+    Write-Host "           Download size is approximately 20GB"            -ForegroundColor Yellow
+    Write-Host "========================================================" -ForegroundColor Yellow
 
-        try
+    try
+    {
+        if(!(test-path "$env:ProgramData\$SoftwareName\Images"))
         {
-            if(!(test-path "$env:ProgramData\$SoftwareName\Images"))
-            {
-                New-Item "$env:ProgramData\$SoftwareName\Images" -ItemType Directory -Force
-            }
-            Write-Host "========================================================"           -ForegroundColor Yellow
-            Write-Host "            This Download may take a while"                         -ForegroundColor Yellow
-            Write-Host "========================================================"           -ForegroundColor Yellow
-            
-            Write-Host "========================================================"           -ForegroundColor Yellow
-            Write-Host "           Download size is approximately 15GB"                     -ForegroundColor Yellow
-            Write-Host "========================================================"           -ForegroundColor Yellow
-            
-            Write-Host "========================================================"           -ForegroundColor Green
-            Write-Host "           Downloading Windows 11 VHDX Template."                   -ForegroundColor Green
-            Write-Host "========================================================"           -ForegroundColor Green
-            Write-Host " "                                                                  -ForegroundColor Green
-
-            $DownloadUrl = 'https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx'
-            $Filename = $DownloadUrl | Split-Path -Leaf
-            $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
-            $WebClient = New-Object Net.WebClient
-            $WebClient.DownloadFile($DownloadUrl, $DownloadPath)
-
-            Write-Host "========================================================"           -ForegroundColor Green
-            Write-Host "           Download completed successfully."                        -ForegroundColor Green
-            Write-Host "========================================================"           -ForegroundColor Green
-            Write-Host " "                                                                  -ForegroundColor Green
+            New-Item "$env:ProgramData\$SoftwareName\Images" -ItemType Directory -Force
         }
-        catch
-        {
-            Exit 1
-        }        
 
-        Write-Host " "
+        IF ((Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) -eq $VHDXVersion) {
+            Write-Host "========================================================" -ForegroundColor Green
+            Write-Host "           VHDX Template already downloaded."              -ForegroundColor Green
+            Write-Host "========================================================" -ForegroundColor Green
+        }
+        elseif (Get-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) {
+            Write-Host "========================================================" -ForegroundColor Yellow
+            Write-Host "           Updating Windows 11 VHDX Template."           -ForegroundColor Yellow
+            Write-Host "========================================================" -ForegroundColor Yellow
+
+            $DownloadUrl  = 'https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx'
+            $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
+            $WebClient    = New-Object Net.WebClient
+            $WebClient.DownloadFile($DownloadUrl, $DownloadPath)
+            Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -PropertyType String -Force | Out-Null
+
+            Write-Host "========================================================" -ForegroundColor Green
+            Write-Host "           Download completed successfully."               -ForegroundColor Green
+            Write-Host "========================================================" -ForegroundColor Green
+        }
+        ELSE {
+            Write-Host "========================================================" -ForegroundColor Yellow
+            Write-Host "           Downloading Windows 11 VHDX Template."            -ForegroundColor Yellow
+            Write-Host "========================================================" -ForegroundColor Yellow
+
+            $DownloadUrl  = 'https://download.nvxo.se/vmdeploy/vhdx/Windows11.vhdx'
+            $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
+            $WebClient    = New-Object Net.WebClient
+            $WebClient.DownloadFile($DownloadUrl, $DownloadPath)
+            New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -PropertyType String -Force | Out-Null
+
+            Write-Host "========================================================" -ForegroundColor Green
+            Write-Host "           Download completed successfully."               -ForegroundColor Green
+            Write-Host "========================================================" -ForegroundColor Green
+        }
+    }
+    catch
+    {
+        Exit 1
+    }        
+
+    Write-Host " "
 #endregion
 
 #region Post-Installation
@@ -212,24 +228,16 @@ Write-Host " "
         Write-Host "========================================================"
         Write-Host " "
 
-        if (Get-Item -path "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx") {
+        IF ((Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) -eq $VHDXVersion) {
             Write-Host -Message "Installation finished successfully" -Level SUCCEEDED
             Write-Host "========================================================"
-
-        try {
-            New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "Win1122H2" -PropertyType String -Force | Out-Null
-            Write-Host "Registry value for $SourceFiles created/updated successfully."
-        } catch {
-            Write-Error "Failed to create/update registry value for $SourceFiles."
+            Stop-Transcript
+            Exit 0
         }
-            
-        Write-Host "========================================================"
-        Stop-Transcript
-    }
-    else {
-        Write-Host -Message "Installation finished unsuccessfully" -Level WARNING
-        Write-Host "========================================================"
-        Stop-Transcript
-    }
-
+        else {
+            Write-Host -Message "Download finished unsuccessfully" -Level WARNING
+            Write-Host "========================================================"
+            Stop-Transcript
+            Exit 1
+        }
 #endregion

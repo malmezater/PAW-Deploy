@@ -453,7 +453,7 @@ desktopheight:i:1200
 
     # Restart the VM
     Write-Verbose "Restarting VM"
-    Stop-VM -Name $VMname -Force
+    Stop-VM -Name $VMname
     if(!($Template -like "*OOBE*")){
         
         Get-VM -Name $VMname | Set-VMSecurityPolicy -Shielded $true -Verbose
@@ -561,4 +561,4 @@ desktopheight:i:1200
 }
 
 Stop-Transcript
-Exit
+Exit 0
