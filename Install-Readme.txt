@@ -28,8 +28,13 @@ Use the intunewim file under "Install VMDeploy Company Portal" with the install 
 
 Recommended with SCCM/Intune:
 To add and remove VM's, create two applications called, VMDeploy and VM-Remove (Or what ever name you like).
-Use the powershell scripts in "Company Portal" folder to launch the applications.
+Create another two applications one for Deployment and one for Remove VM's. 
+The path for VMDeploy is "C:\ProgramData\VMDeploy\" and you will find "VMDeploywUI.ps1" (Deploy VM) and "VMRemovewUI.ps1" (Remove VM).
+
+Powershell should run the files with something like this:
+Deploy VM = "PowerShell -ExecutionPolicy ByPass -NoProfile -File "C:\ProgramData\VMdeploy\VMDeploywUI.ps1"
+Remove VM = "PowerShell -ExecutionPolicy ByPass -NoProfile -File "C:\ProgramData\VMdeploy\VMRemovewUI.ps1"
 
 Run as local Admin:
-Two shortcuts are created during installation, this is shortcuts to start powershell scripts to deploy or remove VM's.
+Two shortcuts are created during installation, this shortcuts is to start powershell scripts to deploy or remove VM's.
 The shortcuts are NOT created for the Intune deployment!
