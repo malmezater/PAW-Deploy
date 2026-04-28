@@ -149,7 +149,7 @@ IF ((Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAc
     New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\VMDestroy.ico" -RunAsAdmin
     #New-Item -Path "C:\Users\Public\Desktop\VMTools" -Type Directory -Force
     #Copy-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Administrative Tools\Hyper-V Manager.lnk" -Destination "$env:ALLUSERSPROFILE\Desktop\VMTools\Hyper-V Manager.lnk" -Force
-    Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVerison -PropertyType String -Force | Out-Null
+    Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVerison -Force | Out-Null
 } else {
     & Robocopy $ScriptDir\Source "$env:ProgramData\" /e /it /is /copyall
 

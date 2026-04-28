@@ -175,7 +175,7 @@ Write-Host " "
             $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
             $WebClient    = New-Object Net.WebClient
             $WebClient.DownloadFile($DownloadUrl, $DownloadPath)
-            Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -PropertyType String -Force | Out-Null
+            Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -Force | Out-Null
 
             Write-Host "========================================================" -ForegroundColor Green
             Write-Host "           Download completed successfully."               -ForegroundColor Green
