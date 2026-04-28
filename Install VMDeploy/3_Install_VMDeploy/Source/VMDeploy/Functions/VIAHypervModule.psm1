@@ -540,6 +540,11 @@ Function Enable-VIANestedHyperV
 
     #Check if VM has Expose Virtualization Extensions Enabled
     if(($VMCPU).ExposeVirtualizationExtensions -ne $true){Write-Warning "$VMname is not set to Expose Virtualization Extensions, Modifying";Set-VMProcessor -VM $VM -ExposeVirtualizationExtensions $true}
+
+    $BitLockerRegPath = "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FVE"
+    if ((Get-ItemPropertyValue -Path $BitLockerRegPath -Name "FDVDenyWriteAccess") -eq "0") {
+        Set-ItemProperty -Path $BitLockerRegPath -Name "FDVDenyWriteAccess" -Value "1"
+    }
 }
 Function Restart-VIAVM
 {
