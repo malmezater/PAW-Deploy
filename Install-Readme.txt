@@ -21,10 +21,15 @@ INFORMATION
 SCCM Installation:
 Add the folder "Install VMDeply" in Application Library.
 Create an application called "Install VMDeploy" or whatever you like it to be called.
+Run the "Install-VMDeploy.ps1" with the install settings above.
 
-Recommended setup:
+Intune Installation:
+Use the intunewim file under "Install VMDeploy Company Portal" with the install settings above.
+
+Recommended with SCCM/Intune:
 To add and remove VM's, create two applications called, VMDeploy and VM-Remove (Or what ever name you like).
 Use the powershell scripts in "Company Portal" folder to launch the applications.
 
 Run as local Admin:
 Two shortcuts are created during installation, this is shortcuts to start powershell scripts to deploy or remove VM's.
+The shortcuts are NOT created for the Intune deployment!
