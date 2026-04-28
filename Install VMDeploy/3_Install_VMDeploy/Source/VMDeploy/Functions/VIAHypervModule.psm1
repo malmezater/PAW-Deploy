@@ -453,6 +453,10 @@ Function Mount-VIAVHDInFolder
         $VHDfile,
         $MountFolder
     )
+    $BitLockerRegPath = "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FVE"
+    if ((Get-ItemPropertyValue -Path $BitLockerRegPath -Name "FDVDenyWriteAccess") -eq "1") {
+        Set-ItemProperty -Path $BitLockerRegPath -Name "FDVDenyWriteAccess" -Value "0"
+    }
     $MountVHD = New-Item -Path $MountFolder -ItemType Directory -Force
     $VHD = Mount-DiskImage -ImagePath $VHDfile -NoDriveLetter -PassThru
     $DiskNumber = (Get-DiskImage -ImagePath $VHDfile | Get-Disk)
