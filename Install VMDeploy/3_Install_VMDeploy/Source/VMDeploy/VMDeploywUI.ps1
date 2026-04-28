@@ -325,7 +325,7 @@ Function OkButtonSelected
     }
 
     $ScriptToRun = "$RootFolder\VMDeploy.ps1"
-    $Argument = "-NoExit $ScriptToRun $ScriptArguments"
+    $Argument = "$ScriptToRun $ScriptArguments"
     
     Start-Process PowerShell -ArgumentList "$Argument" -Verbose
     $Form.close()

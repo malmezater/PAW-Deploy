@@ -48,7 +48,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ScriptName = Split-Path -Leaf $MyInvocation.MyCommand.Path
 $ARCHITECTURE = $env:PROCESSOR_ARCHITECTURE
 
-$ScriptVerison = "2.0.2"
+$ScriptVerison = "2.0.3"
 $SourceFiles = "VMDeployVersion"
 $ApplicationName = "VMDeploy"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
