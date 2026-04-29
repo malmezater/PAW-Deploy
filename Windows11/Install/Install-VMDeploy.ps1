@@ -40,7 +40,7 @@ $SoftwareName = "VMDeploy" <# Enter the name of the software you want to install
 ##*===============================================
 ##* Static VARIABLES
 ##*===============================================
-$ScriptVersion = "2.0.1"
+$ScriptVersion = "2.0.3"
 $DeployIT = "$env:ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $DeployITDownload = "$DeployIT\Download"
