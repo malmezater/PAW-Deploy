@@ -1,4 +1,3 @@
-$item = "$PSScriptRoot\$SourceFiles"
 $SourceFiles = "Remove-PAWDeploy"
 $DeployIT = "C:\ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
@@ -26,7 +25,7 @@ else{
 write-host " "
 write-host " Starting the script to remove VM's."
 
-Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\DeployIT\PAWDeploy\VMRemovewUI.ps1
+Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\VMDeploy\VMRemovewUI.ps1
 
 ##*===============================================
 ##* Remove Check file
