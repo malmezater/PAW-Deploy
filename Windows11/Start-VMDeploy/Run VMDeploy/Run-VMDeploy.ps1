@@ -23,6 +23,9 @@ Start-Transcript -Path $PowershellLogPath -Force -Append
 ##* Check if the hash ID matches
 ##*===============================================    
 
+    write-host " "
+    write-host " Starting the script VMDeploy"
+
     Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\VMDeploy\PAWDeploywUI.ps1
 
 ##*===============================================
