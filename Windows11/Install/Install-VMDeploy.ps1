@@ -41,6 +41,7 @@ $SoftwareName = "VMDeploy" <# Enter the name of the software you want to install
 ##* Static VARIABLES
 ##*===============================================
 $ScriptVersion = "2.0.3"
+$VHDXVersion = "Win11-25H2"
 $DeployIT = "$env:ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $DeployITDownload = "$DeployIT\Download"
@@ -224,19 +225,12 @@ Write-Host " "
         Write-Host "========================================================"
         Write-Host " "
 
-        IF (Get-LocalUser "Hypervuser" -ErrorAction SilentlyContinue) {
-            Write-Host -Message "HyperV user already exists. Proceeding with VM Deploy installation." -Level SUCCEEDED
-                IF (!(Get-ItemProperty -Path "$ApplicationKeyPath\VMDeploy" -Name "VMDeployVersion" -ErrorAction SilentlyContinue) -eq $ScriptVersion){
-                    Write-Host "Older version of VMDeploy is installed, reinstalling to newer version."                
-                    Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
-                }
-                else {
-                    Write-Host "Latest version of VMDeploy is already installed."
-                }
+        IF (!(Get-ItemProperty -Path "$ApplicationKeyPath\VMDeploy" -Name "VMDeployVersion" -ErrorAction SilentlyContinue) -eq $ScriptVersion){
+            Write-Host "Older version of VMDeploy is installed, reinstalling to newer version."                
+            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
         }
         else {
-            Write-Host -Message "HyperV user does not exist. Cannot proceed with VM Deploy installation." -Level WARNING
-            Exit 1
+            Write-Host "Latest version of VMDeploy is already installed."
         }
 
         Write-Host " "
@@ -251,8 +245,13 @@ Write-Host " "
         Write-Host "========================================================"
         Write-Host " "
 
-            Write-Host -Message "Downloading Windows 11 VHDX Template to VMDeploy Image folder." -Level SUCCEEDED
-            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\4_Download_Windows_VHDX\download-vhdx.ps1"
+        IF (!(Get-ItemProperty -Path "$ApplicationKeyPath\VMDeploy" -Name "VHDXVersion" -ErrorAction SilentlyContinue) -eq $VHDXVersion){
+            Write-Host "Older version of VHDX is installed, reinstalling to newer version."                
+            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
+        }
+        else {
+            Write-Host "Latest version of VHDX is already installed."
+        }
 
         Write-Host " "
 #endregion

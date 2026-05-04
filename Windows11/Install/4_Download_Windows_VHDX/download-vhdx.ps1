@@ -224,12 +224,21 @@ function Get-AzCopyIfNeeded {
             New-Item "$env:ProgramData\$SoftwareName\Images" -ItemType Directory -Force
         }
 
-        IF ((Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) -eq $VHDXVersion) {
+        IF (!(Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) -eq $VHDXVersion) {
+            Write-Host "========================================================" -ForegroundColor Yellow
+            Write-Host "           Downloading Windows 11 VHDX Template."            -ForegroundColor Yellow
+            Write-Host "========================================================" -ForegroundColor Yellow
+
+            Download-WithAzCopy `
+                -SourceUrl $DownloadUrl `
+                -DestinationPath $DownloadPath
+            New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -PropertyType String -Force | Out-Null
+
             Write-Host "========================================================" -ForegroundColor Green
-            Write-Host "           VHDX Template already downloaded."              -ForegroundColor Green
+            Write-Host "           Download completed successfully."               -ForegroundColor Green
             Write-Host "========================================================" -ForegroundColor Green
         }
-        elseif (Get-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) {
+        elseif ((Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) -ne $VHDXVersion) {
             Write-Host "========================================================" -ForegroundColor Yellow
             Write-Host "           Updating Windows 11 VHDX Template."           -ForegroundColor Yellow
             Write-Host "========================================================" -ForegroundColor Yellow
@@ -244,18 +253,10 @@ function Get-AzCopyIfNeeded {
             Write-Host "========================================================" -ForegroundColor Green
         }
         ELSE {
-            Write-Host "========================================================" -ForegroundColor Yellow
-            Write-Host "           Downloading Windows 11 VHDX Template."            -ForegroundColor Yellow
-            Write-Host "========================================================" -ForegroundColor Yellow
-
-            Download-WithAzCopy `
-                -SourceUrl $DownloadUrl `
-                -DestinationPath $DownloadPath
-            New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -PropertyType String -Force | Out-Null
-
             Write-Host "========================================================" -ForegroundColor Green
-            Write-Host "           Download completed successfully."               -ForegroundColor Green
+            Write-Host "           VHDX Template already downloaded."              -ForegroundColor Green
             Write-Host "========================================================" -ForegroundColor Green
+
         }
     }
     catch
