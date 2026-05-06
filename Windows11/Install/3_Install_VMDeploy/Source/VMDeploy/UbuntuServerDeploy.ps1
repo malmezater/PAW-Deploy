@@ -58,23 +58,22 @@ if (-not $Name) {
 }
 
 ##*===============================================
-##* Kali VM Settings
+##* Ubuntu Server VM Settings
 ##*===============================================
-$SourceFiles = "Create-Kali"
-$DeployIT = "C:\ProgramData\DeployIT"
-$DeployITLogs = "$DeployIT\logs"
-$PowershellLogPath = "$DeployITLogs\$SourceFiles.log"
-$HashID = (get-filehash -Path $env:ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx -Algorithm SHA256).Hash
-$CheckItem = New-Item -Path "$DeployIT\Check\$SourceFiles.txt" -Force
-$vhdxtemp = "C:\ProgramData\DeployIT\VMDeploy\Images\Kali.vhdx"
-$vhdx = "C:\ProgramData\DeployIT\VMDeploy\VMs\$Name\$Name.vhdx"
+$SourceFiles = "UbuntuServerMinimalx64"
+$VMDeploy = "$$Env:ProgramData\VMDeploy"
+$VMDeployLogs = "$VMDeploy\logs"
+$PowershellLogPath = "$VMDeployLogs\$SourceFiles.log"
+$CheckItem = New-Item -Path "$VMDeploy\Check\$SourceFiles.txt" -Force
+$vhdxtemp = "$VMDeploy\Images\UbuntuServerMinimalx64.vhdx"
+$vhdx = "$VMDeploy\VMs\$Name\$Name.vhdx"
 
-$Description = "Kali Rolling (2025.1a) x64 2025-03-07
+$Description = "Ubuntu Server Minimal x64 2025-05-06
 
 - - - - - - - - - - - - - - - - - -
 
-Username: kali
-Password: kali
+Username: ubuntu
+Password: ubuntu
 (SE keyboard layout)
 
 - - - - - - - - - - - - - - - - - -"
@@ -82,27 +81,22 @@ Password: kali
 Start-Transcript -Path $PowershellLogPath -Force -Append
 
 ##*===============================================
-##* DeployIT LOG AND DOWNLOAD DIRECTORY
+##* VMDeploy LOG AND DOWNLOAD DIRECTORY
 ##*===============================================
 
-if (!(Test-Path $DeployITLogs)) {
-    Write-Host "Logpath: $DeployITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITLogs -Force
+if (!(Test-Path $VMDeployLogs)) {
+    Write-Host "Logpath: $VMDeployLogs doesn't exist. Creating directory."
+    New-Item -ItemType Directory $VMDeployLogs -Force
 } else {
-    Write-Host "Logpath: $DeployITLogs already exists. No need to create directory."
+    Write-Host "Logpath: $VMDeployLogs already exists. No need to create directory."
 }
 
 ##*===============================================
 ##* Check if the hash ID matches
 ##*===============================================    
 
-if ($HashID -eq "995ADFDD19C64E5BEE1871B24DB5768A0947097FDE3C500BD749843A70EBC41B") {
-    Write-Host "The hash ID matches the expected value. Proceeding with the script."
-    Powershell.exe -ExecutionPolicy Bypass -File "$env:ProgramData\DeployIT\VMDeploy\Create-Kali.ps1"
-} else {
-    Write-Host "The hash ID does not match the expected value. Please check the image file."
-    exit
-}
+
+    Powershell.exe -ExecutionPolicy Bypass -File "$env:ProgramData\VMDeploy\VMDeploy\Create-Ubuntu-Server.ps1"
 
 #region Installation
 ##*===============================================
@@ -121,7 +115,7 @@ Get-Item -Path $vhdxtemp | Copy-Item -Destination $vhdx -Force
 New-VM `
   -Generation 2 `
   -Name "$Name" `
-  -MemoryStartupBytes 2048MB `
+  -MemoryStartupBytes 4096MB `
   -SwitchName "Default Switch" `
   -VHDPath $vhdx
 
@@ -132,10 +126,10 @@ Set-VMProcessor -VMName "$Name" -Count 2
 Enable-VMIntegrationService -VMName "$Name" -Name "Guest Service Interface"
 
 Write-Host ""
-Write-Host "Your Kali Linux virtual machine is ready."
+Write-Host "Your Ubuntu-Server virtual machine is ready."
 Write-Host "In order to use it, please start: Hyper-V Manager"
 Write-Host "For more information please see:"
-Write-Host "  https://www.kali.org/docs/virtualization/import-premade-hyper-v/"
+Write-Host "https://ubuntu.com/download/server"
 Write-Host ""
 #endregion
 
