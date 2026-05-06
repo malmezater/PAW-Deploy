@@ -61,7 +61,7 @@ if (-not $Name) {
 ##* Ubuntu Server VM Settings
 ##*===============================================
 $SourceFiles = "UbuntuServerMinimalx64"
-$VMDeploy = "$$Env:ProgramData\VMDeploy"
+$VMDeploy = "$Env:ProgramData\VMDeploy"
 $VMDeployLogs = "$VMDeploy\logs"
 $PowershellLogPath = "$VMDeployLogs\$SourceFiles.log"
 $CheckItem = New-Item -Path "$VMDeploy\Check\$SourceFiles.txt" -Force
