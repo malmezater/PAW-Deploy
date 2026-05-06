@@ -213,9 +213,9 @@ function Get-AzCopyIfNeeded {
     Write-Host "========================================================"           -ForegroundColor Yellow
     Write-Host "            This Download may take a while"                         -ForegroundColor Yellow
     Write-Host "========================================================"           -ForegroundColor Yellow
-    Write-Host "========================================================" -ForegroundColor Yellow
-    Write-Host "           Download size is approximately 20GB"            -ForegroundColor Yellow
-    Write-Host "========================================================" -ForegroundColor Yellow
+    Write-Host "========================================================"           -ForegroundColor Yellow
+    Write-Host "           Download size is approximately 20GB"                     -ForegroundColor Yellow
+    Write-Host "========================================================"           -ForegroundColor Yellow
 
     try
     {
