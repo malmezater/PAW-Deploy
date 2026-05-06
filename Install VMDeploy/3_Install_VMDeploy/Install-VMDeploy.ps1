@@ -48,7 +48,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ScriptName = Split-Path -Leaf $MyInvocation.MyCommand.Path
 $ARCHITECTURE = $env:PROCESSOR_ARCHITECTURE
 
-$ScriptVerison = "2.0.3"
+$ScriptVerison = "2.0.4"
 $SourceFiles = "VMDeployVersion"
 $ApplicationName = "VMDeploy"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
@@ -133,10 +133,20 @@ Write-Log "$ScriptName - Make:: $TSMake"
 Write-Log "$ScriptName - Model: $TSModel"
 
 #Custom Code Starts--------------------------------------
-IF ((Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) -eq $ScriptVerison) {
+IF (!(Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) -eq $ScriptVerison) {
     Write-Host "========================================================"           -ForegroundColor Green
-    Write-Host "           VMDeploy is already installed."                       -ForegroundColor Green
+    Write-Host "                   Installing VMDeploy."                              -ForegroundColor Green
     Write-Host "========================================================"           -ForegroundColor Green
+    Write-Host " "                                                                  -ForegroundColor Green
+    & Robocopy $ScriptDir\Source "$env:ProgramData\" /e /it /is /copyall
+
+    New-Item -Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy" -Type Directory -Force
+    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\Deploy Windows.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\VMDeploy.ico" -RunAsAdmin
+    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\VMDestroy.ico" -RunAsAdmin
+    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\Deploy UbuntuServer.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\UbuntuServerDeploy.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\DeployUbuntuServer.ico" -RunAsAdmin
+    #New-Item -Path "C:\Users\Public\Desktop\VMTools" -Type Directory -Force
+    #Copy-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Administrative Tools\Hyper-V Manager.lnk" -Destination "$env:ALLUSERSPROFILE\Desktop\VMTools\Hyper-V Manager.lnk" -Force
+    New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVerison -PropertyType String -Force | Out-Null
 } elseif (Get-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) {
     Write-Host "========================================================"           -ForegroundColor Green
     Write-Host "                   Updating VMDeploy."                              -ForegroundColor Green
@@ -145,20 +155,16 @@ IF ((Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAc
     & Robocopy $ScriptDir\Source "$env:ProgramData\" /e /it /is /copyall
 
     New-Item -Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy" -Type Directory -Force
-    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Deploy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\VMDeploy.ico" -RunAsAdmin
-    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\VMDestroy.ico" -RunAsAdmin
+    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\Deploy Windows.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\VMDeploy.ico" -RunAsAdmin
+    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\VMDestroy.ico" -RunAsAdmin
+    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\Deploy UbuntuServer.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\UbuntuServerDeploy.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\DeployUbuntuServer.ico" -RunAsAdmin
     #New-Item -Path "C:\Users\Public\Desktop\VMTools" -Type Directory -Force
     #Copy-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Administrative Tools\Hyper-V Manager.lnk" -Destination "$env:ALLUSERSPROFILE\Desktop\VMTools\Hyper-V Manager.lnk" -Force
     Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVerison -Force | Out-Null
 } else {
-    & Robocopy $ScriptDir\Source "$env:ProgramData\" /e /it /is /copyall
-
-    New-Item -Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy" -Type Directory -Force
-    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Deploy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\VMDeploy.ico" -RunAsAdmin
-    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\VMDestroy.ico" -RunAsAdmin
-    #New-Item -Path "C:\Users\Public\Desktop\VMTools" -Type Directory -Force
-    #Copy-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Administrative Tools\Hyper-V Manager.lnk" -Destination "$env:ALLUSERSPROFILE\Desktop\VMTools\Hyper-V Manager.lnk" -Force
-    New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVerison -PropertyType String -Force | Out-Null
+    Write-Host "========================================================"           -ForegroundColor Green
+    Write-Host "           VMDeploy is already installed."                       -ForegroundColor Green
+    Write-Host "========================================================"           -ForegroundColor Green
 }
 #*===============================================
 #* Check if installation file exist
