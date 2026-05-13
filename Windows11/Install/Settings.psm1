@@ -8,11 +8,9 @@ Write-Host "========================================================"
 Write-Host " "
 
 $CompanyName = "COMPANY NAME" <# Enter the name who is deploying the software #>
-
 $ScriptVersion = "2.0.4"
-
 $DownloadUrl = "Download URL" <# Enter the URL to download the VHDX file #>
-$VHDXVersion = "Win11-25H2"
+$VHDXVersion = "Win11-25H2" <# Enter the version of the VHDX file #>
 
 Write-Host " "
 
@@ -38,7 +36,7 @@ Write-Host " "
 ##*===============================================
 #Software registry path
 ##*===============================================
-    $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
+    $RegistryPath = "HKLM:\SOFTWARE\$CompanyName" -replace (" ","")
     $RegistrySoftwareName = "$RegistryPath\$SoftwareName" -replace (" ","")
     $ApplicationKeyPath = "$RegistrySoftwareName"
 
@@ -69,7 +67,6 @@ Write-Host " "
 
     #Stage 4 - Download VHDX
     ##*===========================================
-        $SourceFiles = "WindowsVHDX"
 
 Write-Host " "
 #endregion
