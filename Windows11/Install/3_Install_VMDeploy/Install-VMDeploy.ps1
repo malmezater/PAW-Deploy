@@ -49,11 +49,12 @@ $ScriptName = Split-Path -Leaf $MyInvocation.MyCommand.Path
 $ARCHITECTURE = $env:PROCESSOR_ARCHITECTURE
 
 $ScriptVerison = "2.0.4"
-$SourceFiles = "VMDeployVersion"
-$ApplicationName = "VMDeploy"
+$SoftwareName = "VMDeploy"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
-$RegistryApplicationName = "$RegistryPath\$ApplicationName"
-$ApplicationKeyPath = "$RegistryApplicationName"
+$RegistrySoftwareName = "$RegistryPath\$SoftwareName"
+$ApplicationKeyPath = "$RegistrySoftwareName"
+
+$SourceFiles = "VMDeployVersion"
 
 #Import TSxUtility
 
@@ -177,6 +178,6 @@ IF  ((Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorA
         Exit 0
     } 
 Else {
-        Write-Error "Failed to create/update $ApplicationName."
+        Write-Error "Failed to create/update $SoftwareName."
         Exit 1
     }

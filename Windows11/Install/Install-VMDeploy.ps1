@@ -48,6 +48,7 @@ $DeployITDownload = "$DeployIT\Download"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistrySoftwareName = "$RegistryPath\$SoftwareName" -replace (" ","")
 $ApplicationKeyPath = "$RegistrySoftwareName"
+
 $Date = Get-Date -Format yyMMdd
 $Global:InstallerCount = 0
 #endregion

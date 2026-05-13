@@ -40,7 +40,7 @@ $SoftwareName = "VMDeploy" <# Enter the name of the software you want to install
 ##*===============================================
 ##* Static VARIABLES
 ##*===============================================
-$SourceFiles = "WindowsVHDX"
+
 $VHDXVersion = "Win11-25H2"
 $DownloadUrl = "https://malmesaterarchive.blob.core.windows.net/vmdeply-temp/VM-Temp/Win-Template.vhdx"
 $DownloadPath = "$env:ProgramData\$SoftwareName\Images\Windows11.vhdx"
@@ -50,6 +50,8 @@ $DeployITDownload = "$DeployIT\Download"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
 $RegistrySoftwareName = "$RegistryPath\$SoftwareName" -replace (" ","")
 $ApplicationKeyPath = "$RegistrySoftwareName"
+
+$SourceFiles = "WindowsVHDX"
 $Date = Get-Date -Format yyMMdd
 $Global:InstallerCount = 0
 

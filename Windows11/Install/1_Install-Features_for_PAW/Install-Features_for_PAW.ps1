@@ -1,11 +1,12 @@
-﻿$ApplicationName = "VMDeploy"
-$SourceFiles = "HyperV"
+﻿$SoftwareName = "VMDeploy"
 $RegistryPath = "HKLM:\SOFTWARE\DeployIT"
-$RegistryApplicationName = "$RegistryPath\$ApplicationName"
-$ApplicationKeyPath = "$RegistryApplicationName"
+$RegistrySoftwareName = "$RegistryPath\$SoftwareName"
+$ApplicationKeyPath = "$RegistrySoftwareName"
 $DeployIT = "C:\ProgramData\DeployIT"
 $DeployITLogs = "$DeployIT\logs"
 $DeployITDownload = "$DeployIT\Download"
+
+$SourceFiles = "HyperV"
 $PowershellLogPath = "$DeployITLogs\$SourceFiles-PS.log"
 
 Start-Transcript -Path $PowershellLogPath -Force -Append
@@ -30,12 +31,12 @@ if(!(Test-Path $DeployITDownload)){
     write-host "DownloadPath: $DeployITDownload already exist. No need to create directory."
     }
 
-if (-not (Test-Path $RegistryApplicationName)) {
-    Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
-    New-Item -Path $RegistryApplicationName -Force
+if (-not (Test-Path $RegistrySoftwareName)) {
+    Write-Host "Registry key $RegistrySoftwareName does not exist. Creating it..."
+    New-Item -Path $RegistrySoftwareName -Force
     } 
     else {
-    Write-Host "Registry key $RegistryApplicationName already exists."
+    Write-Host "Registry key $RegistrySoftwareName already exists."
     }
 
 ##*===============================================
