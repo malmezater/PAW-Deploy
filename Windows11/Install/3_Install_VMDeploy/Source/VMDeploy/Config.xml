@@ -13,7 +13,7 @@
 <Memory>4096</Memory>
 <MemoryLow>2048</MemoryLow>
 <MemoryHigh>8192</MemoryHigh>
-<NoCPU>2</NoCPU>
+<NoCPU>4</NoCPU>
 <DynamicMem>True</DynamicMem>
 <DiskMode>Attached</DiskMode>
 <VHDFile>C:\ProgramData\VMDeploy\Images\Windows11.vhdx</VHDFile>
@@ -31,7 +31,7 @@
 <Memory>4096</Memory>
 <MemoryLow>2048</MemoryLow>
 <MemoryHigh>8192</MemoryHigh>
-<NoCPU>2</NoCPU>
+<NoCPU>4</NoCPU>
 <DynamicMem>True</DynamicMem>
 <DiskMode>Attached</DiskMode>
 <VHDFile>C:\ProgramData\VMDeploy\Images\Windows11.vhdx</VHDFile>
@@ -43,20 +43,5 @@
 <VLanID>0</VLanID>
 <VMSwitch>Default Switch</VMSwitch>
 </Template>
-<!-- <Template Name="Linux - Kali">
-<Active>True</Active>
-<VMGen>2</VMGen>
-<Memory>2048</Memory>
-<MemoryLow>2048</MemoryLow>
-<MemoryHigh>8192</MemoryHigh>
-<NoCPU>2</NoCPU>
-<DynamicMem>True</DynamicMem>
-<DiskMode>Attached</DiskMode>
-<VHDFile>C:\ProgramData\VMDeploy\Images\Kali.vhdx</VHDFile>
-<TimeZoneName>W. Europe Standard Time</TimeZoneName>
-<NameSuffix>Kali-</NameSuffix>
-<VLanID>0</VLanID>
-<VMSwitch>Default Switch</VMSwitch>
-</Template> -->
  </Templates>
 </Settings>
