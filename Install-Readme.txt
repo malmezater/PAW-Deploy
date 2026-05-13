@@ -18,6 +18,12 @@ Enforce script signature check and run script silently
 No
 
 INFORMATION
+Begin with changing the 3 following things in settings under "Install VMDeploy". 
+
+Company Name: Change this if you want another name than DeployIT.
+Download URL: Change this to the URL where you can download your Windows Image.
+Win11-25H2: Change this if you using another Windows image.
+
 SCCM Installation:
 Add the folder "Install VMDeply" in Application Library.
 Create an application called "Install VMDeploy" or whatever you like it to be called.
