@@ -351,7 +351,7 @@ if($VHDFile -ne 'NA'){
 
     # Restart the VM
     Write-Verbose "Restarting VM"
-    Stop-VM -Name $VMname
+    Stop-VM -Name $VMname -Confirm:$false
     Start-VM -Name $VMname
     Wait-VIAVMHaveICLoaded -VMname $VMname
     Wait-VIAVMHaveIP -VMname $VMname
@@ -453,7 +453,7 @@ desktopheight:i:1200
 
     # Restart the VM
     Write-Verbose "Restarting VM"
-    Stop-VM -Name $VMname
+    Stop-VM -Name $VMname -Confirm:$false
     if(!($Template -like "*OOBE*")){
         
         Get-VM -Name $VMname | Set-VMSecurityPolicy -Shielded $true -Verbose
