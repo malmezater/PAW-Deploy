@@ -9,7 +9,7 @@
 #>
 
 # -------  Bootstrap: load shared settings  -------
-Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
+Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
 
 $SourceFiles = "VMDeployVersion"
 $Date        = Get-Date -Format yyMMdd

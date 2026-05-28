@@ -6,7 +6,7 @@
 #>
 
 # -------  Bootstrap: load shared settings  -------
-Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
+Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
 
 $SourceFiles = "FirewallRules"
 $LogPath     = "$DeployITLogs\$SourceFiles-PS.log"

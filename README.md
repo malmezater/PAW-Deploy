@@ -134,7 +134,7 @@ If Stage 1 enables Hyper-V for the first time, the script exits with code **1641
      ```
    - **Uninstall command:** your preferred uninstall script (see [Windows11/Start-VMDeploy/Remove VMDeploy/](Windows11/Start-VMDeploy/Remove%20VMDeploy/)).
    - **Detection rule:** registry value
-     `HKLM:\SOFTWARE\<CompanyName>\VMDeploy` → `VMDeployVersion` equals `2.0.4`.
+     `HKLM:\SOFTWARE\<CompanyName>\VMDeploy` → `VMDeployVersion` equals `2.1.0`.
    - **Behavior:** install as **system**; allow **device restart** (exit code 1641).
 
 ---
@@ -147,7 +147,7 @@ If Stage 1 enables Hyper-V for the first time, the script exits with code **1641
 | 2a | [Configure-PAWNetwork.ps1](Install/2_Install_VMDeploy-configuration/Configure-PAWNetwork.ps1) | Creates an external VMSwitch named **"Ethernet Cable"** on the first active physical NIC. | `PawNetwork = True` |
 | 2b | [Set-FirewallRules.ps1](Install/2_Install_VMDeploy-configuration/Set-FirewallRules.ps1) | Disables Hyper-V remoting firewall rules that interfere with PAW usage. | One value per rule name. |
 | 2c | [Add-HyperVAdmin.ps1](Install/2_Install_VMDeploy-configuration/Add-HyperVAdmin.ps1) | Adds the signed-in user to the **Hyper-V Administrators** local group and creates the `Hypervuser` service account. | `HyperV-Admins = True` |
-| 3 | [Install-VMDeploy.ps1](Install/3_Install_VMDeploy/Install-VMDeploy.ps1) | Robocopies the `Source/VMDeploy` tree to `C:\ProgramData\VMDeploy` and creates Start menu shortcuts (with the "Run as administrator" flag). | `VMDeployVersion = 2.0.4` |
+| 3 | [Install-VMDeploy.ps1](Install/3_Install_VMDeploy/Install-VMDeploy.ps1) | Robocopies the `Source/VMDeploy` tree to `C:\ProgramData\VMDeploy` and creates Start menu shortcuts (with the "Run as administrator" flag). | `VMDeployVersion = 2.1.0` |
 | 4 | [download-vhdx.ps1](Install/4_Download_Windows_VHDX/download-vhdx.ps1) | Installs AzCopy on demand and downloads the Windows 11 VHDX template to `C:\ProgramData\VMDeploy\Images\Windows11.vhdx`. | `WindowsVHDX = Win11-25H2` |
 
 The orchestrator skips any stage whose stamp matches the expected value, making the installer safe to re-run.

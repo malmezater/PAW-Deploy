@@ -3,7 +3,7 @@
 ##*=============================================
 ##* VMDeploy - Settings Module
 ##* Import this module in every child script:
-##*   Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
+##*   Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
 ##*=============================================
 
 #region -------  USER-CONFIGURABLE ATTRIBUTES  -------

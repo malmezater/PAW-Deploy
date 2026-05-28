@@ -10,7 +10,7 @@
 #>
 
 # -------  Bootstrap: load shared settings  -------
-Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
+Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
 
 $SourceFiles = "HyperV"
 $LogPath     = "$DeployITLogs\$SourceFiles-PS.log"
