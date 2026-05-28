@@ -100,7 +100,7 @@ Derived values that you normally should not need to change:
 
 | Variable | Value |
 | --- | --- |
-| `$ScriptVersion` | `2.0.4` |
+| `$ScriptVersion` | `2.1.0` |
 | `$SoftwareName` | `VMDeploy` |
 | `$DeployPath` | `C:\ProgramData\<CompanyName>` |
 | `$DeployITLogs` | `C:\ProgramData\<CompanyName>\Logs` |
@@ -220,7 +220,7 @@ The [Windows11/Old/](Windows11/Old/) directory contains the earlier, single-stag
 
 ## Version
 
-- Installer version: **2.0.4**
+- Installer version: **2.1.0**
 - Default VHDX tag: **Win11-25H2**
 
 Refrence and thank you to Mikael Nyström. 
