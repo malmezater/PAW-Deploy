@@ -71,10 +71,6 @@ Each stage:
 | [Install/2_Install_VMDeploy-configuration/](Install/2_Install_VMDeploy-configuration/) | Stage 2 — Network switch, firewall rules, Hyper-V admins. |
 | [Install/3_Install_VMDeploy/](Install/3_Install_VMDeploy/) | Stage 3 — Deploys the VMDeploy application files. |
 | [Install/4_Download_Windows_VHDX/](Install/4_Download_Windows_VHDX/) | Stage 4 — AzCopy download of the Windows 11 VHDX template. |
-| [Create Templade VHDX/](Create%20Templade%20VHDX/) | Helper scripts to build a sysprepped Windows 11 template VHDX. |
-| [Windows11/](Windows11/) | Mirror of the installer plus legacy assets and intunewin packages. |
-| [Windows11/Start-VMDeploy/](Windows11/Start-VMDeploy/) | Intune Win32 packages to run/remove VMDeploy on demand. |
-| [Windows11/Old/](Windows11/Old/) | Previous-generation stage scripts kept for reference. |
 
 ---
 
