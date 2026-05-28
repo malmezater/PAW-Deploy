@@ -1,8 +1,8 @@
-
+﻿
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Stage 3 — Copy VMDeploy source files and create Start Menu shortcuts.
+    Stage 3 - Copy VMDeploy source files and create Start Menu shortcuts.
 .NOTES
     Uses Robocopy to deploy the source tree, then writes a version stamp
     to the registry. Idempotent: re-runs update if the version stamp differs.
@@ -76,11 +76,11 @@ function Install-VMDeployFiles {
 $installedVersion = Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue
 
 if ($null -eq $installedVersion) {
-    Write-Host "VMDeploy not found — performing fresh install."
+    Write-Host "VMDeploy not found - performing fresh install."
     Install-VMDeployFiles
     New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVersion -PropertyType String -Force | Out-Null
 } else {
-    Write-Host "Installed version ($installedVersion) differs from current ($ScriptVersion) — updating."
+    Write-Host "Installed version ($installedVersion) differs from current ($ScriptVersion) - updating."
     Install-VMDeployFiles
     Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVersion -Force | Out-Null
 }

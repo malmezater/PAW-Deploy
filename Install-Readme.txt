@@ -1,4 +1,4 @@
-Install command
+﻿Install command
 PowerShell -ExecutionPolicy ByPass -NoProfile -File install-vmdeploy.ps1
 
 Install behavior

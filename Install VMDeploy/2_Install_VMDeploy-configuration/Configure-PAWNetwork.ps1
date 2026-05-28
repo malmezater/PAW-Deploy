@@ -1,8 +1,8 @@
-
+﻿
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Stage 2a — Create the Hyper-V external VM switch ("Ethernet Cable").
+    Stage 2a - Create the Hyper-V external VM switch ("Ethernet Cable").
 #>
 
 # -------  Bootstrap: load shared settings  -------
@@ -29,7 +29,7 @@ if ((Get-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V").State 
 # -------  Create VM switch if missing  -------
 
 if (Get-VMSwitch | Where-Object Name -EQ "Ethernet Cable") {
-    Write-Host "VMSwitch 'Ethernet Cable' already exists — skipping creation."
+    Write-Host "VMSwitch 'Ethernet Cable' already exists - skipping creation."
 } else {
     $NetAdapter = Get-NetAdapter -Physical | Where-Object Status -EQ "Up" | Select-Object -First 1
     if (-not $NetAdapter) {

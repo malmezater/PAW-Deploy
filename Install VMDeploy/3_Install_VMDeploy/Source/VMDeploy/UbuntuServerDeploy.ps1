@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 #Requires -Modules Hyper-V
 
 Add-Type -AssemblyName System.Windows.Forms

@@ -1,8 +1,8 @@
-
+﻿
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Stage 4 — Download the Windows 11 VHDX template via AzCopy.
+    Stage 4 - Download the Windows 11 VHDX template via AzCopy.
 .NOTES
     AzCopy is auto-installed to %LOCALAPPDATA%\AzCopy if not present.
     Falls back gracefully if AzCopy cannot be installed.
@@ -30,7 +30,7 @@ function Get-AzCopyPath {
     $exe = Join-Path $InstallPath "azcopy.exe"
     if (Test-Path $exe) { return $exe }
 
-    Write-Host "AzCopy not found — downloading ..."
+    Write-Host "AzCopy not found - downloading ..."
     $zipPath     = Join-Path $env:TEMP "azcopy.zip"
     $extractPath = Join-Path $env:TEMP "azcopy_extract"
 
@@ -82,11 +82,11 @@ $installedVHDX = Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFi
 
 try {
     if ($null -eq $installedVHDX) {
-        Write-Host "No VHDX stamp found — downloading fresh copy."
+        Write-Host "No VHDX stamp found - downloading fresh copy."
         Invoke-AzCopyDownload -SourceUrl $DownloadUrl -DestinationPath $VHDXDownloadPath
         New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -PropertyType String -Force | Out-Null
     } else {
-        Write-Host "VHDX version mismatch ($installedVHDX → $VHDXVersion) — re-downloading."
+        Write-Host "VHDX version mismatch ($installedVHDX → $VHDXVersion) - re-downloading."
         Invoke-AzCopyDownload -SourceUrl $DownloadUrl -DestinationPath $VHDXDownloadPath
         Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $VHDXVersion -Force | Out-Null
     }

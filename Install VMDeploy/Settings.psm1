@@ -1,4 +1,4 @@
-
+﻿
 #Requires -Version 5.1
 ##*=============================================
 ##* VMDeploy - Settings Module
@@ -37,7 +37,7 @@ $Script:RegistryPath        = ("HKLM:\SOFTWARE\$Script:CompanyName") -replace ' 
 $Script:RegistrySoftwareName = ("$Script:RegistryPath\$Script:SoftwareName") -replace ' ', ''
 $Script:ApplicationKeyPath   = $Script:RegistrySoftwareName
 
-# Stage 1 — Hyper-V features to enable
+# Stage 1 - Hyper-V features to enable
 $Script:HyperVFeatures = @(
     "Microsoft-Hyper-V-All"
     "Microsoft-Hyper-V"
@@ -49,7 +49,7 @@ $Script:HyperVFeatures = @(
     "HostGuardian"
 )
 
-# Stage 2 — Firewall rules to disable for PAW
+# Stage 2 - Firewall rules to disable for PAW
 $Script:FirewallRules = @(
     "VIRT-WMI-RPCSS-In-TCP-NoScope"
     "VIRTCL-WMI-RPCSS-In-TCP-NoScope"

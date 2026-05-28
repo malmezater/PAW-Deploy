@@ -1,8 +1,8 @@
-
+﻿
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Stage 2b — Disable the three PAW Hyper-V firewall rules.
+    Stage 2b - Disable the three PAW Hyper-V firewall rules.
 #>
 
 # -------  Bootstrap: load shared settings  -------
@@ -23,7 +23,7 @@ Write-Host "========================================================"
 foreach ($Rule in $FirewallRules) {
     $fw = Get-NetFirewallRule -Name $Rule -ErrorAction SilentlyContinue
     if (-not $fw) {
-        Write-Warning "Firewall rule '$Rule' not found — skipping."
+        Write-Warning "Firewall rule '$Rule' not found - skipping."
         continue
     }
 

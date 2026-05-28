@@ -1,4 +1,4 @@
-# PAW-Deploy
+﻿# PAW-Deploy
 
 **PAW-Deploy** is a PowerShell-based deployment solution for setting up a **Privileged Access Workstation (PAW)** on Windows 11. It automates the installation and configuration of Hyper-V, network switches, firewall rules, and the **VMDeploy** tool used to provision Windows and Linux virtual machines from pre-built VHDX templates.
 
@@ -67,10 +67,10 @@ Each stage:
 | [Install/](Install/) | Current production installer (run by Intune). |
 | [Install/Install-VMDeploy.ps1](Install/Install-VMDeploy.ps1) | Top-level orchestrator that runs all four stages. |
 | [Install/Settings.psm1](Install/Settings.psm1) | Shared module with paths, registry keys, and config. |
-| [Install/1_Install-Features_for_PAW/](Install/1_Install-Features_for_PAW/) | Stage 1 — Hyper-V feature enablement. |
-| [Install/2_Install_VMDeploy-configuration/](Install/2_Install_VMDeploy-configuration/) | Stage 2 — Network switch, firewall rules, Hyper-V admins. |
-| [Install/3_Install_VMDeploy/](Install/3_Install_VMDeploy/) | Stage 3 — Deploys the VMDeploy application files. |
-| [Install/4_Download_Windows_VHDX/](Install/4_Download_Windows_VHDX/) | Stage 4 — AzCopy download of the Windows 11 VHDX template. |
+| [Install/1_Install-Features_for_PAW/](Install/1_Install-Features_for_PAW/) | Stage 1 - Hyper-V feature enablement. |
+| [Install/2_Install_VMDeploy-configuration/](Install/2_Install_VMDeploy-configuration/) | Stage 2 - Network switch, firewall rules, Hyper-V admins. |
+| [Install/3_Install_VMDeploy/](Install/3_Install_VMDeploy/) | Stage 3 - Deploys the VMDeploy application files. |
+| [Install/4_Download_Windows_VHDX/](Install/4_Download_Windows_VHDX/) | Stage 4 - AzCopy download of the Windows 11 VHDX template. |
 
 ---
 
@@ -203,10 +203,10 @@ File names include the script name and date stamp (`yyMMdd`), for example `Insta
 
 The [Create Templade VHDX/](Create%20Templade%20VHDX/) folder contains helpers used when building the reference Windows 11 image that ships as `Windows11.vhdx`:
 
-- [Install-Module.ps1](Create%20Templade%20VHDX/Install-Module.ps1) — installs Graph / Intune / AutoPilot PowerShell modules used during image preparation.
-- [Uninstall-WinApps.ps1](Create%20Templade%20VHDX/Uninstall-WinApps.ps1) — removes pre-installed Microsoft Store apps.
-- [Remove-TempFiles.ps1](Create%20Templade%20VHDX/Remove-TempFiles.ps1) — cleans temp folders prior to sysprep.
-- [LayoutModification.xml](Create%20Templade%20VHDX/LayoutModification.xml) — Start menu layout applied to the template.
+- [Install-Module.ps1](Create%20Templade%20VHDX/Install-Module.ps1) - installs Graph / Intune / AutoPilot PowerShell modules used during image preparation.
+- [Uninstall-WinApps.ps1](Create%20Templade%20VHDX/Uninstall-WinApps.ps1) - removes pre-installed Microsoft Store apps.
+- [Remove-TempFiles.ps1](Create%20Templade%20VHDX/Remove-TempFiles.ps1) - cleans temp folders prior to sysprep.
+- [LayoutModification.xml](Create%20Templade%20VHDX/LayoutModification.xml) - Start menu layout applied to the template.
 
 After running these and a `sysprep /generalize /oobe /shutdown`, the resulting VHDX is uploaded to the storage account referenced by `$DownloadUrl` in `Settings.psm1`.
 

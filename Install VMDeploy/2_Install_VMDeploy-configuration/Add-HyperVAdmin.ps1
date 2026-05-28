@@ -1,8 +1,8 @@
-
+﻿
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Stage 2c — Add the logged-in user to the Hyper-V Administrators group
+    Stage 2c - Add the logged-in user to the Hyper-V Administrators group
               and create the local "Hypervuser" service account.
 #>
 
@@ -44,7 +44,7 @@ Write-Host "========================================================"
 $HyperVUsername = "Hypervuser"
 
 if (Get-LocalUser -Name $HyperVUsername -ErrorAction SilentlyContinue) {
-    Write-Host "'$HyperVUsername' already exists — skipping creation."
+    Write-Host "'$HyperVUsername' already exists - skipping creation."
 } else {
     # GUI password input dialog
     function Show-PasswordDialog {
@@ -144,7 +144,7 @@ if (Get-LocalUser -Name $HyperVUsername -ErrorAction SilentlyContinue) {
     $password = Show-PasswordDialog
 
     if ($null -eq $password) {
-        Write-Warning "User cancelled — '$HyperVUsername' was not created."
+        Write-Warning "User cancelled - '$HyperVUsername' was not created."
         Stop-Transcript
         exit 1
     }
@@ -166,7 +166,7 @@ if (Get-LocalUser -Name $HyperVUsername -ErrorAction SilentlyContinue) {
         Write-Warning "Failed to write registry value for '$SourceFiles'."
     }
 } else {
-    Write-Warning "'$HyperVUsername' not found — registry not updated."
+    Write-Warning "'$HyperVUsername' not found - registry not updated."
 }
 
 Stop-Transcript
