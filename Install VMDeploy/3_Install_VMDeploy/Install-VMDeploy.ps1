@@ -1,182 +1,98 @@
-﻿<#
+
+#Requires -Version 5.1
+<#
 .SYNOPSIS
-    Baseconfig for W10
-.DESCRIPTION
-    Baseconfig for W10
-.EXAMPLE
-    Baseconfig for W10
+    Stage 3 — Copy VMDeploy source files and create Start Menu shortcuts.
 .NOTES
-        ScriptName: Baseconfig for W10.ps1
-        Author:     Mikael Nystrom
-        Twitter:    @mikael_nystrom
-        Email:      mikael.nystrom@truesec.se
-        Blog:       https://deploymentbunny.com
-
-    Version History
-    1.0.0 - Script created [01/16/2019 13:12:16]
-
-Copyright (c) 2019 Mikael Nystrom
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+    Uses Robocopy to deploy the source tree, then writes a version stamp
+    to the registry. Idempotent: re-runs update if the version stamp differs.
 #>
 
-[cmdletbinding(SupportsShouldProcess=$True)]
-Param(
-)
+# -------  Bootstrap: load shared settings  -------
+Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
 
-# Set Vars
-$VerbosePreference = "continue"
-$writetoscreen = $true
-$osv = ''
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ScriptName = Split-Path -Leaf $MyInvocation.MyCommand.Path
-$ARCHITECTURE = $env:PROCESSOR_ARCHITECTURE
-
-$ScriptVerison = "2.0.4"
 $SourceFiles = "VMDeployVersion"
-$ApplicationName = "VMDeploy"
-$RegistryPath = "HKLM:\SOFTWARE\DeployIT"
-$RegistryApplicationName = "$RegistryPath\$ApplicationName"
-$ApplicationKeyPath = "$RegistryApplicationName"
+$Date        = Get-Date -Format yyMMdd
+$LogPath     = "$DeployITLogs\Install-VMDeploy-$Date.log"
+Start-Transcript -Path $LogPath -Force -Append
 
-#Import TSxUtility
+Initialize-DeployEnvironment
 
-try
-{
-    $tsenv = New-Object -COMObject Microsoft.SMS.TSEnvironment
-    $Logpath = $tsenv.Value("LogPath")
-    $LogFile = $Logpath + "\" + "$ScriptName.log"
-    $DeployRoot = $tsenv.Value("DeployRoot")
-    $TSMake = $tsenv.Value("Make")
-    $TSModel = $tsenv.Value("Model")
-    $TSServerCoreOS = $tsenv.Value("IsServerCoreOS")
-}
-catch
-{
-    Write-Warning "COMObject Microsoft.SMS.TSEnvironment could not be imported"
-    $Logpath = $env:TEMP
-    $LogFile = $Logpath + "\" + "$ScriptName.log"
-    Write-Verbose "Logfile is now $LogFile"
-    $Deployroot = $ScriptDir | Split-Path -Parent | Split-Path -Parent
-    $TSMake = (Get-WmiObject -Class win32_computersystem).Manufacturer
-    $TSModel = (Get-WmiObject -Class win32_computersystem).Model
-    $TSServerCoreOS = "True"
-    if((Test-Path -Path 'C:\Program Files\Internet Explorer\iexplore.exe') -eq $true){
-        $TSServerCoreOS = "False"
-    }
-}
-Import-Module $ScriptDir\TSxUtility.psm1
+Write-Host "========================================================"
+Write-Host "                  Install VM Deploy"
+Write-Host "========================================================"
 
-Function New-TSxShortCut{
-    Param    (
-        $SoruceFile,
-        $DestinationFile,
-        $Arguments,
-        $IconDLL = "NA",
+# -------  Helper: create a shortcut (optionally Run-as-admin)  -------
+function New-Shortcut {
+    param(
+        [string]$SourceFile,
+        [string]$DestinationFile,
+        [string]$Arguments,
+        [string]$IconPath = "NA",
         [switch]$RunAsAdmin
     )
+    $shell     = New-Object -ComObject WScript.Shell
+    $shortcut  = $shell.CreateShortcut($DestinationFile)
+    $shortcut.TargetPath = $SourceFile
+    $shortcut.Arguments  = $Arguments
+    if ($IconPath -ne "NA") { $shortcut.IconLocation = $IconPath }
+    $shortcut.Save()
 
-    $WshShell = New-Object -ComObject WScript.Shell
-    $ShortCut = $WshShell.CreateShortcut($DestinationFile)
-    $ShortCut.TargetPath = $SoruceFile
-    $ShortCut.Arguments = $Arguments
-    
-
-    if($IconDLL -ne "NA"){
-            $ShortCut.IconLocation = $IconDLL
-    }
-    $ShortCut.Save()
-
-    if($RunAsAdmin){
-        $bytes = [System.IO.File]::ReadAllBytes("$($ShortCut.FullName)")
-        $bytes[0x15] = $bytes[0x15] -bor 0x20 #set byte 21 (0x15) bit 6 (0x20) ON
-        [System.IO.File]::WriteAllBytes("$($ShortCut.FullName)", $bytes)
+    if ($RunAsAdmin) {
+        $bytes = [System.IO.File]::ReadAllBytes($shortcut.FullName)
+        $bytes[0x15] = $bytes[0x15] -bor 0x20
+        [System.IO.File]::WriteAllBytes($shortcut.FullName, $bytes)
     }
 }
 
-#Start logging
-Start-Log -FilePath $LogFile
-Write-Log "$ScriptName - Logging to $LogFile"
+# -------  Deploy files  -------
+function Install-VMDeployFiles {
+    Write-Host "Copying VMDeploy source files ..."
+    & Robocopy "$PSScriptRoot\Source" "$env:ProgramData\" /e /it /is /copyall
 
-# Generate Vars
-$OSSKU = Get-OSSKU
-$TSMake = $tsenv.Value("Make")
-$TSModel = $tsenv.Value("Model")
-$TSServerCoreOS = $tsenv.Value("IsServerCoreOS")
+    $menuDir = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy"
+    New-Item -Path $menuDir -ItemType Directory -Force | Out-Null
 
-Get-VIAOSVersion -osv ([ref]$osv)  
+    $baseArgs = "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy"
+    $iconBase  = "$env:ProgramData\VMDeploy\Icons"
 
-#Output more info
-Write-Log "$ScriptName - ScriptDir: $ScriptDir"
-Write-Log "$ScriptName - ScriptName: $ScriptName"
-Write-Log "$ScriptName - Integration with TaskSequence(LTI/ZTI): $MDTIntegration"
-Write-Log "$ScriptName - Log: $LogFile"
-Write-Log "$ScriptName - OSSKU: $OSSKU"
-Write-Log "$ScriptName - OSVersion: $osv"
-Write-Log "$ScriptName - Make:: $TSMake"
-Write-Log "$ScriptName - Model: $TSModel"
+    New-Shortcut -SourceFile "PowerShell.exe" `
+        -DestinationFile "$menuDir\Deploy Windows.lnk" `
+        -Arguments "$baseArgs\VMDeploywUI.ps1" `
+        -IconPath "$iconBase\VMDeploy.ico" -RunAsAdmin
 
-#Custom Code Starts--------------------------------------
-IF (!(Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) -eq $ScriptVerison) {
-    Write-Host "========================================================"           -ForegroundColor Green
-    Write-Host "                   Installing VMDeploy."                              -ForegroundColor Green
-    Write-Host "========================================================"           -ForegroundColor Green
-    Write-Host " "                                                                  -ForegroundColor Green
-    & Robocopy $ScriptDir\Source "$env:ProgramData\" /e /it /is /copyall
+    New-Shortcut -SourceFile "PowerShell.exe" `
+        -DestinationFile "$menuDir\VM Destroy.lnk" `
+        -Arguments "$baseArgs\VMRemovewUI.ps1" `
+        -IconPath "$iconBase\VMDestroy.ico" -RunAsAdmin
 
-    New-Item -Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy" -Type Directory -Force
-    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\Deploy Windows.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\VMDeploy.ico" -RunAsAdmin
-    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\VMDestroy.ico" -RunAsAdmin
-    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\Deploy UbuntuServer.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\UbuntuServerDeploy.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\DeployUbuntuServer.ico" -RunAsAdmin
-    #New-Item -Path "C:\Users\Public\Desktop\VMTools" -Type Directory -Force
-    #Copy-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Administrative Tools\Hyper-V Manager.lnk" -Destination "$env:ALLUSERSPROFILE\Desktop\VMTools\Hyper-V Manager.lnk" -Force
-    New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVerison -PropertyType String -Force | Out-Null
-} elseif (Get-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) {
-    Write-Host "========================================================"           -ForegroundColor Green
-    Write-Host "                   Updating VMDeploy."                              -ForegroundColor Green
-    Write-Host "========================================================"           -ForegroundColor Green
-    Write-Host " "                                                                  -ForegroundColor Green
-    & Robocopy $ScriptDir\Source "$env:ProgramData\" /e /it /is /copyall
+    New-Shortcut -SourceFile "PowerShell.exe" `
+        -DestinationFile "$menuDir\Deploy UbuntuServer.lnk" `
+        -Arguments "$baseArgs\UbuntuServerDeploy.ps1" `
+        -IconPath "$iconBase\DeployUbuntuServer.ico" -RunAsAdmin
+}
 
-    New-Item -Path "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy" -Type Directory -Force
-    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\Deploy Windows.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMDeploywUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\VMDeploy.ico" -RunAsAdmin
-    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\VM Destroy.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\VMRemovewUI.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\VMDestroy.ico" -RunAsAdmin
-    New-TSxShortCut -SoruceFile PowerShell.exe -DestinationFile "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy\Deploy UbuntuServer.lnk" -Arguments "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy\UbuntuServerDeploy.ps1" -IconDLL "$env:ProgramData\VMDeploy\Icons\DeployUbuntuServer.ico" -RunAsAdmin
-    #New-Item -Path "C:\Users\Public\Desktop\VMTools" -Type Directory -Force
-    #Copy-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Administrative Tools\Hyper-V Manager.lnk" -Destination "$env:ALLUSERSPROFILE\Desktop\VMTools\Hyper-V Manager.lnk" -Force
-    Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVerison -Force | Out-Null
+# -------  Install or update  -------
+$installedVersion = Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue
+
+if ($null -eq $installedVersion) {
+    Write-Host "VMDeploy not found — performing fresh install."
+    Install-VMDeployFiles
+    New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVersion -PropertyType String -Force | Out-Null
 } else {
-    Write-Host "========================================================"           -ForegroundColor Green
-    Write-Host "           VMDeploy is already installed."                       -ForegroundColor Green
-    Write-Host "========================================================"           -ForegroundColor Green
+    Write-Host "Installed version ($installedVersion) differs from current ($ScriptVersion) — updating."
+    Install-VMDeployFiles
+    Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVersion -Force | Out-Null
 }
-#*===============================================
-#* Check if installation file exist
-#*===============================================
 
-IF  ((Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue) -eq $ScriptVerison) {
-        Write-Host "========================================================"
-        Write-Host "           Installation finished successfully."         -ForegroundColor Green
-        Write-Host "========================================================"
-        Exit 0
-    } 
-Else {
-        Write-Error "Failed to create/update $ApplicationName."
-        Exit 1
-    }
+# -------  Verify  -------
+$stamp = Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue
+if ($stamp -eq $ScriptVersion) {
+    Write-Host "Installation verified successfully."
+    Stop-Transcript
+    exit 0
+} else {
+    Write-Error "Version stamp not found or incorrect after install."
+    Stop-Transcript
+    exit 1
+}

@@ -1,91 +1,56 @@
-﻿
-$ApplicationName = "VMDeploy"
+
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+    Stage 2a — Create the Hyper-V external VM switch ("Ethernet Cable").
+#>
+
+# -------  Bootstrap: load shared settings  -------
+Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
+
 $SourceFiles = "PawNetwork"
-$RegistryPath = "HKLM:\SOFTWARE\DeployIT"
-$RegistryApplicationName = "$RegistryPath\$ApplicationName"
-$ApplicationKeyPath = "$RegistryApplicationName"
-$DeployIT = "C:\ProgramData\DeployIT"
-$DeployITLogs = "$DeployIT\logs"
-$DeployITDownload = "$DeployIT\Download"
-$PowershellLogPath = "$DeployITLogs\$SourceFiles-PS.log"
+$LogPath     = "$DeployITLogs\$SourceFiles-PS.log"
+Start-Transcript -Path $LogPath -Force -Append
 
-Start-Transcript -Path $PowershellLogPath -Force -Append
+Initialize-DeployEnvironment
 
-##*===============================================
-##* FUNCTIONS
-##*===============================================
+# -------  Pre-check: Hyper-V must be enabled  -------
 
+Write-Host "========================================================"
+Write-Host "             Configure PAW VM Network Switch"
+Write-Host "========================================================"
 
-##*===============================================
-##* DeployIT LOG AND DOWNLOAD DIRECTORY
-##*===============================================
-
-if(!(Test-Path $DeployITLogs)){
-    write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITLogs -Force
-    }
-    else{
-    write-host "Logpath: $DeployITLogs already exist. No need to create directory."
-    }
-
-if(!(Test-Path $DeployITDownload)){
-    write-host "DownloadPath: $DeployITDownload doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITDownload -Force
-    }
-    else{
-    write-host "DownloadPath: $DeployITDownload already exist. No need to create directory."
-    }
-
-# Check if the DeployIT key exists, if not, create it
-if (-not (Test-Path $RegistryApplicationName)) 
-    {
-        Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
-        New-Item -Path $RegistryApplicationName -Force
-    } else {
-        Write-Host "Registry key $RegistryApplicationName already exists."
-    }
-
-
-
-# Check if Hyper-v is installed
-if((Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-v).State -ne "Enabled")
-{
-    Write-Warning "Hyper-V is not enabled, will exit"
-
+if ((Get-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V").State -ne "Enabled") {
+    Write-Warning "Hyper-V is not enabled. Cannot configure network. Exiting."
+    Stop-Transcript
+    exit 1
 }
 
-##*===============================================
-##* INSTALLATION
-##*===============================================
+# -------  Create VM switch if missing  -------
 
-# Create VMSwitch for External access
-
-# Verify the switch
-if((Get-VMSwitch | Where-Object Name -EQ "Ethernet Cable"))
-{
-    Write-Host "VMSwitch Ethernet Cable already exists, will not create it again"
-    write-host "#==================================================================#"
-    Write-Host "Check for registry key for $SourceFiles"
-    try {
-        New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null
-        Write-Host "Registry value for $SourceFiles created/updated successfully."
-    } catch {
-        Write-Error "registry value for $SourceFiles. Allready exists."
+if (Get-VMSwitch | Where-Object Name -EQ "Ethernet Cable") {
+    Write-Host "VMSwitch 'Ethernet Cable' already exists — skipping creation."
+} else {
+    $NetAdapter = Get-NetAdapter -Physical | Where-Object Status -EQ "Up" | Select-Object -First 1
+    if (-not $NetAdapter) {
+        Write-Warning "No active physical network adapter found. Cannot create VM switch."
+        Stop-Transcript
+        exit 1
     }
-    
+
+    Write-Host "Creating VMSwitch 'Ethernet Cable' on adapter: $($NetAdapter.Name)"
+    New-VMSwitch -Name "Ethernet Cable" -NetAdapterName $NetAdapter.Name -AllowManagementOS $true | Out-Null
+    Write-Host "VMSwitch created successfully."
 }
 
-else {
+# -------  Write registry  -------
 
-    $NetAdapter = Get-NetAdapter -Physical | Where-Object Status -EQ Up
-    New-VMSwitch -Name "Ethernet Cable" -NetAdapterName $NetAdapter.Name -AllowManagementOS $true
-    Write-Host "The VMSwitch Ethernet Cable was created"
-    try {
-        New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null
-        Write-Host "Registry value for $SourceFiles created/updated successfully."
-    } catch {
-        Write-Error "Failed to create/update registry value for $SourceFiles."
-    }
+try {
+    New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null
+    Write-Host "Registry value '$SourceFiles' written successfully."
+} catch {
+    Write-Warning "Failed to write registry value for $SourceFiles."
 }
 
 Stop-Transcript
+exit 0

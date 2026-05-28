@@ -1,116 +1,84 @@
-﻿$ApplicationName = "VMDeploy"
+
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+    Stage 1 — Enable all required Hyper-V Windows Optional Features.
+.NOTES
+    Exits 1641 when a reboot is required (standard Intune reboot code).
+    Exits 0 if no reboot is needed (should not normally happen for a first install).
+    Exits 1 if features could not be enabled after all retries.
+#>
+
+# -------  Bootstrap: load shared settings  -------
+Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
+
 $SourceFiles = "HyperV"
-$RegistryPath = "HKLM:\SOFTWARE\DeployIT"
-$RegistryApplicationName = "$RegistryPath\$ApplicationName"
-$ApplicationKeyPath = "$RegistryApplicationName"
-$DeployIT = "C:\ProgramData\DeployIT"
-$DeployITLogs = "$DeployIT\logs"
-$DeployITDownload = "$DeployIT\Download"
-$PowershellLogPath = "$DeployITLogs\$SourceFiles-PS.log"
+$LogPath     = "$DeployITLogs\$SourceFiles-PS.log"
+Start-Transcript -Path $LogPath -Force -Append
 
-Start-Transcript -Path $PowershellLogPath -Force -Append
+Initialize-DeployEnvironment
 
-##*===============================================
-##* DeployIT LOG AND DOWNLOAD DIRECTORY
-##*===============================================
+# -------  Enable features  -------
 
-if(!(Test-Path $DeployITLogs)){
-    write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITLogs -Force
-    }
-    else{
-    write-host "Logpath: $DeployITLogs already exist. No need to create directory."
-    }
+Write-Host "========================================================"
+Write-Host "           Install Hyper-V Optional Features"
+Write-Host "========================================================"
 
-if(!(Test-Path $DeployITDownload)){
-    write-host "DownloadPath: $DeployITDownload doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITDownload -Force
-    }
-    else{
-    write-host "DownloadPath: $DeployITDownload already exist. No need to create directory."
-    }
-
-if (-not (Test-Path $RegistryApplicationName)) {
-    Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
-    New-Item -Path $RegistryApplicationName -Force
-    } 
-    else {
-    Write-Host "Registry key $RegistryApplicationName already exists."
-    }
-
-##*===============================================
-##* INSTALLATION
-##*===============================================
-
-$HyperVFeatures = @(
-    "Microsoft-Hyper-V-All"
-    "Microsoft-Hyper-V"
-    "Microsoft-Hyper-V-Tools-All"
-    "Microsoft-Hyper-V-Management-PowerShell"
-    "Microsoft-Hyper-V-Hypervisor"
-    "Microsoft-Hyper-V-Services"
-    "Microsoft-Hyper-V-Management-Clients"
-    "HostGuardian"
-)
-
-Foreach($Feature in $HyperVFeatures) {
-    Get-WindowsOptionalFeature -FeatureName $Feature -Online | ForEach-Object {
-        if ($_.State -eq "Enabled") {
-            Write-Host "$Feature is already enabled."
-        } else {
-            Enable-WindowsOptionalFeature -FeatureName $Feature -LimitAccess -NoRestart -Online
-        }
+foreach ($Feature in $HyperVFeatures) {
+    $state = (Get-WindowsOptionalFeature -FeatureName $Feature -Online).State
+    if ($state -eq "Enabled") {
+        Write-Host "$Feature is already enabled."
+    } else {
+        Write-Host "Enabling $Feature ..."
+        Enable-WindowsOptionalFeature -FeatureName $Feature -LimitAccess -NoRestart -Online | Out-Null
     }
 }
 
-##*===============================================
-##* Check if all features are enabled
-##*===============================================
+# -------  Verify (up to 3 attempts)  -------
 
-$MaxCheckAttempts = 3
-$RemainingAttempts = $MaxCheckAttempts
+$MaxAttempts       = 3
+$RemainingAttempts = $MaxAttempts
+$AllEnabled        = $false
 
-Write-Host "Checking HyperV feature status up to $MaxCheckAttempts times."
+Write-Host "Verifying feature state (up to $MaxAttempts attempts)..."
 
 do {
-    $AllFeaturesEnabled = $true
+    $AllEnabled = $true
 
-    Foreach ($Feature in $HyperVFeatures) {
-        $featureState = (Get-WindowsOptionalFeature -FeatureName $Feature -Online).State
+    foreach ($Feature in $HyperVFeatures) {
+        $state = (Get-WindowsOptionalFeature -FeatureName $Feature -Online).State
 
-        if ($featureState -eq "Enabled") {
-            Write-Host "HyperV Feature $Feature is Enabled"
+        if ($state -eq "Enabled") {
+            Write-Host "$Feature — Enabled"
             try {
                 New-ItemProperty -Path $ApplicationKeyPath -Name $Feature -Value "Enabled" -PropertyType String -Force | Out-Null
-                Write-Host "Registry value for $Feature created/updated successfully."
             } catch {
-                Write-Error "Failed to create/update registry value for $Feature."
+                Write-Warning "Could not write registry value for $Feature."
             }
         } else {
-            Write-Host "HyperV Feature $Feature is Disabled"
-            $AllFeaturesEnabled = $false
+            Write-Host "$Feature — NOT enabled"
+            $AllEnabled = $false
         }
     }
 
-    if ($AllFeaturesEnabled) {
-        break
-    }
+    if ($AllEnabled) { break }
 
     $RemainingAttempts--
     if ($RemainingAttempts -gt 0) {
-        Write-Host "Not all features are enabled yet. Retrying in 10 seconds. Remaining attempts: $RemainingAttempts"
+        Write-Host "Retrying in 10 seconds... ($RemainingAttempts attempts left)"
         Start-Sleep -Seconds 10
-    } else {
-        Write-Host "Retry counter reached 0."
     }
+
 } while ($RemainingAttempts -gt 0)
 
-if ($AllFeaturesEnabled -or $RemainingAttempts -eq 0) {
-    Write-Host "Reboot required. Exiting with code 1641."
-    Stop-Transcript
+# -------  Exit  -------
+
+Stop-Transcript
+
+if ($AllEnabled) {
+    Write-Host "All features enabled. Reboot required — exiting 1641."
     exit 1641
 } else {
-    Write-Host "Not all features enabled and retries remain. No reboot required."
-    Stop-Transcript
-    exit 0
+    Write-Warning "Not all features could be enabled. Exiting 1."
+    exit 1
 }

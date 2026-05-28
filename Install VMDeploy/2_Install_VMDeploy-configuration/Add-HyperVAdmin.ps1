@@ -1,205 +1,173 @@
-﻿$SourceFiles = "HyperV-Admins"
-$ApplicationName = "VMDeploy"
-$RegistryPath = "HKLM:\SOFTWARE\DeployIT"
-$RegistryApplicationName = "$RegistryPath\$ApplicationName"
-$ApplicationKeyPath = "$RegistryApplicationName"
-$DeployIT = "C:\ProgramData\DeployIT"
-$DeployITLogs = "$DeployIT\logs"
-$DeployITDownload = "$DeployIT\Download"
-$PowershellLogPath = "$DeployITLogs\$SourceFiles-PS.log"
 
-Start-Transcript -Path $PowershellLogPath -Force -Append
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+    Stage 2c — Add the logged-in user to the Hyper-V Administrators group
+              and create the local "Hypervuser" service account.
+#>
 
-##*===============================================
-##* DeployIT LOG AND DOWNLOAD DIRECTORY
-##*===============================================
+# -------  Bootstrap: load shared settings  -------
+Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
 
-if(!(Test-Path $DeployITLogs)){
-    write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITLogs -Force
+$SourceFiles = "HyperV-Admins"
+$LogPath     = "$DeployITLogs\$SourceFiles-PS.log"
+Start-Transcript -Path $LogPath -Force -Append
+
+Initialize-DeployEnvironment
+
+# -------  Add logged-in user to Hyper-V Administrators (SID S-1-5-32-578)  -------
+
+Write-Host "========================================================"
+Write-Host "                  Add Hyper-V Administrators"
+Write-Host "========================================================"
+
+try {
+    $HyperVAdminGroup = (Get-WmiObject -Query "Select * From Win32_Group Where LocalAccount = TRUE And SID = 'S-1-5-32-578'").Name
+    $LoggedInUser     = (Get-CimInstance -Class Win32_ComputerSystem).Username
+
+    if (Get-LocalGroupMember -Name $HyperVAdminGroup -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $LoggedInUser }) {
+        Write-Host "$LoggedInUser is already a member of '$HyperVAdminGroup'."
+    } else {
+        Write-Host "Adding '$LoggedInUser' to '$HyperVAdminGroup' ..."
+        Add-LocalGroupMember -Group $HyperVAdminGroup -Member $LoggedInUser
     }
-    else{
-    write-host "Logpath: $DeployITLogs already exist. No need to create directory."
-    }
-
-if(!(Test-Path $DeployITDownload)){
-    write-host "DownloadPath: $DeployITDownload doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITDownload -Force
-    }
-    else{
-    write-host "DownloadPath: $DeployITDownload already exist. No need to create directory."
-    }
-
-    # Check if the DeployIT key exists, if not, create it
-if (-not (Test-Path $RegistryApplicationName)) 
-    {
-        Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
-        New-Item -Path $RegistryApplicationName -Force
-    } 
-    else {
-        Write-Host "Registry key $RegistryApplicationName already exists."
-    }
-
-##*===============================================
-##* Installation
-##*===============================================    
-
-try{
-$LocalAdminGRoup = (Get-WmiObject -Query "Select * From Win32_Group Where LocalAccount = TRUE And SID = 'S-1-5-32-578'").name
-$LoggedinUser = (Get-CimInstance -Class Win32_ComputerSystem).Username
-
-if (Get-LocalGroupMember -Name $LocalAdminGRoup | Where-Object { $_.Name -eq $LoggedinUser }) {
-    Write-host "$LoggedinUser is already a member of the $LocalAdminGRoup group."
-} else {
-    Write-host "$LoggedinUser is not a member of the $LocalAdminGRoup group."
-    Write-host "Adding $LoggedinUser to the $LocalAdminGRoup group."
-    # Add the logged-in user to the local administrators group
-    Add-LocalGroupMember -Group $LocalAdminGRoup -Member $LoggedinUser
+} catch {
+    Write-Warning "Could not add current user to Hyper-V Administrators: $_"
 }
 
-}catch{}
+# -------  Create Hypervuser service account  -------
 
-$username = "Hypervuser"
+Write-Host "========================================================"
+Write-Host "               Create Hypervuser Account"
+Write-Host "========================================================"
 
-if (Get-Localuser -Name $username -ErrorAction SilentlyContinue) {
-    Write-host "Hypervuser already exists."
+$HyperVUsername = "Hypervuser"
+
+if (Get-LocalUser -Name $HyperVUsername -ErrorAction SilentlyContinue) {
+    Write-Host "'$HyperVUsername' already exists — skipping creation."
 } else {
-    ##*===============================================
-    ##* GUI PASSWORD INPUT DIALOG
-    ##*===============================================
-    
+    # GUI password input dialog
     function Show-PasswordDialog {
         Add-Type -AssemblyName System.Windows.Forms
         Add-Type -AssemblyName System.Drawing
-        
-        $form = New-Object System.Windows.Forms.Form
-        $form.Text = "Create Hyper-V User"
-        $form.Size = New-Object System.Drawing.Size(400, 220)
-        $form.StartPosition = "CenterScreen"
-        $form.FormBorderStyle = "FixedDialog"
-        $form.MaximizeBox = $false
-        $form.MinimizeBox = $false
-        $form.TopMost = $true
-        
-        # Username Label
-        $usernameLabel = New-Object System.Windows.Forms.Label
-        $usernameLabel.Text = "Username:"
-        $usernameLabel.Location = New-Object System.Drawing.Point(20, 20)
-        $usernameLabel.Size = New-Object System.Drawing.Size(80, 20)
-        $form.Controls.Add($usernameLabel)
-        
-        # Username TextBox (Read-only)
-        $usernameTextBox = New-Object System.Windows.Forms.TextBox
-        $usernameTextBox.Text = "Hypervuser"
-        $usernameTextBox.Location = New-Object System.Drawing.Point(110, 20)
-        $usernameTextBox.Size = New-Object System.Drawing.Size(250, 20)
-        $usernameTextBox.ReadOnly = $true
-        $usernameTextBox.BackColor = [System.Drawing.Color]::LightGray
-        $form.Controls.Add($usernameTextBox)
-        
-        # Password Label
-        $passwordLabel = New-Object System.Windows.Forms.Label
-        $passwordLabel.Text = "Password:"
-        $passwordLabel.Location = New-Object System.Drawing.Point(20, 60)
-        $passwordLabel.Size = New-Object System.Drawing.Size(80, 20)
-        $form.Controls.Add($passwordLabel)
-        
-        # Password TextBox
-        $passwordTextBox = New-Object System.Windows.Forms.TextBox
-        $passwordTextBox.UseSystemPasswordChar = $true
-        $passwordTextBox.Location = New-Object System.Drawing.Point(110, 60)
-        $passwordTextBox.Size = New-Object System.Drawing.Size(250, 20)
-        $form.Controls.Add($passwordTextBox)
-        
-        # Info Label
-        $infoLabel = New-Object System.Windows.Forms.Label
-        $infoLabel.Text = "(Minimum 15 characters required)"
-        $infoLabel.Location = New-Object System.Drawing.Point(110, 85)
-        $infoLabel.Size = New-Object System.Drawing.Size(250, 20)
-        $infoLabel.ForeColor = [System.Drawing.Color]::DarkBlue
-        $infoLabel.Font = New-Object System.Drawing.Font("Arial", 9, [System.Drawing.FontStyle]::Italic)
-        $form.Controls.Add($infoLabel)
-        
-        # Character Count Label
-        $charCountLabel = New-Object System.Windows.Forms.Label
-        $charCountLabel.Text = "Characters: 0/15"
-        $charCountLabel.Location = New-Object System.Drawing.Point(110, 105)
-        $charCountLabel.Size = New-Object System.Drawing.Size(250, 20)
-        $charCountLabel.ForeColor = [System.Drawing.Color]::Red
-        $charCountLabel.Font = New-Object System.Drawing.Font("Arial", 9)
-        $form.Controls.Add($charCountLabel)
-        
-        # Update character count on text change
-        $passwordTextBox.Add_TextChanged({
-            $charCountLabel.Text = "Characters: $($passwordTextBox.Text.Length)/15"
-            if ($passwordTextBox.Text.Length -ge 15) {
-                $charCountLabel.ForeColor = [System.Drawing.Color]::Green
+
+        $form                  = New-Object System.Windows.Forms.Form
+        $form.Text             = "Create Hyper-V User"
+        $form.Size             = New-Object System.Drawing.Size(400, 220)
+        $form.StartPosition    = "CenterScreen"
+        $form.FormBorderStyle  = "FixedDialog"
+        $form.MaximizeBox      = $false
+        $form.MinimizeBox      = $false
+        $form.TopMost          = $true
+
+        $lblUser          = New-Object System.Windows.Forms.Label
+        $lblUser.Text     = "Username:"
+        $lblUser.Location = New-Object System.Drawing.Point(20, 20)
+        $lblUser.Size     = New-Object System.Drawing.Size(80, 20)
+        $form.Controls.Add($lblUser)
+
+        $txtUser          = New-Object System.Windows.Forms.TextBox
+        $txtUser.Text     = $HyperVUsername
+        $txtUser.Location = New-Object System.Drawing.Point(110, 20)
+        $txtUser.Size     = New-Object System.Drawing.Size(250, 20)
+        $txtUser.ReadOnly = $true
+        $txtUser.BackColor = [System.Drawing.Color]::LightGray
+        $form.Controls.Add($txtUser)
+
+        $lblPwd          = New-Object System.Windows.Forms.Label
+        $lblPwd.Text     = "Password:"
+        $lblPwd.Location = New-Object System.Drawing.Point(20, 60)
+        $lblPwd.Size     = New-Object System.Drawing.Size(80, 20)
+        $form.Controls.Add($lblPwd)
+
+        $txtPwd                      = New-Object System.Windows.Forms.TextBox
+        $txtPwd.UseSystemPasswordChar = $true
+        $txtPwd.Location             = New-Object System.Drawing.Point(110, 60)
+        $txtPwd.Size                 = New-Object System.Drawing.Size(250, 20)
+        $form.Controls.Add($txtPwd)
+
+        $lblInfo          = New-Object System.Windows.Forms.Label
+        $lblInfo.Text     = "(Minimum 15 characters required)"
+        $lblInfo.Location = New-Object System.Drawing.Point(110, 85)
+        $lblInfo.Size     = New-Object System.Drawing.Size(250, 20)
+        $lblInfo.ForeColor = [System.Drawing.Color]::DarkBlue
+        $lblInfo.Font     = New-Object System.Drawing.Font("Arial", 9, [System.Drawing.FontStyle]::Italic)
+        $form.Controls.Add($lblInfo)
+
+        $lblCount          = New-Object System.Windows.Forms.Label
+        $lblCount.Text     = "Characters: 0/15"
+        $lblCount.Location = New-Object System.Drawing.Point(110, 105)
+        $lblCount.Size     = New-Object System.Drawing.Size(250, 20)
+        $lblCount.ForeColor = [System.Drawing.Color]::Red
+        $lblCount.Font     = New-Object System.Drawing.Font("Arial", 9)
+        $form.Controls.Add($lblCount)
+
+        $txtPwd.Add_TextChanged({
+            $lblCount.Text = "Characters: $($txtPwd.Text.Length)/15"
+            $lblCount.ForeColor = if ($txtPwd.Text.Length -ge 15) {
+                [System.Drawing.Color]::Green
             } else {
-                $charCountLabel.ForeColor = [System.Drawing.Color]::Red
+                [System.Drawing.Color]::Red
             }
         })
-        
-        # OK Button
-        $okButton = New-Object System.Windows.Forms.Button
-        $okButton.Text = "OK"
-        $okButton.Location = New-Object System.Drawing.Point(170, 140)
-        $okButton.Size = New-Object System.Drawing.Size(100, 30)
-        $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $okButton.Add_Click({
-            if ($passwordTextBox.Text.Length -lt 15) {
-                [System.Windows.Forms.MessageBox]::Show("Password must be at least 15 characters!", "Invalid Password", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+
+        $btnOK          = New-Object System.Windows.Forms.Button
+        $btnOK.Text     = "OK"
+        $btnOK.Location = New-Object System.Drawing.Point(170, 140)
+        $btnOK.Size     = New-Object System.Drawing.Size(100, 30)
+        $btnOK.Add_Click({
+            if ($txtPwd.Text.Length -lt 15) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Password must be at least 15 characters!",
+                    "Invalid Password",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
             } else {
                 $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
                 $form.Close()
             }
         })
-        $form.Controls.Add($okButton)
-        
-        # Cancel Button
-        $cancelButton = New-Object System.Windows.Forms.Button
-        $cancelButton.Text = "Cancel"
-        $cancelButton.Location = New-Object System.Drawing.Point(280, 140)
-        $cancelButton.Size = New-Object System.Drawing.Size(100, 30)
-        $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-        $form.Controls.Add($cancelButton)
-        
+        $form.Controls.Add($btnOK)
+
+        $btnCancel          = New-Object System.Windows.Forms.Button
+        $btnCancel.Text     = "Cancel"
+        $btnCancel.Location = New-Object System.Drawing.Point(280, 140)
+        $btnCancel.Size     = New-Object System.Drawing.Size(100, 30)
+        $btnCancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+        $form.Controls.Add($btnCancel)
+
         $result = $form.ShowDialog()
-        
-        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-            return $passwordTextBox.Text
-        } else {
-            return $null
-        }
+        return if ($result -eq [System.Windows.Forms.DialogResult]::OK) { $txtPwd.Text } else { $null }
     }
-    
+
     $password = Show-PasswordDialog
-    
-    if ($password -eq $null) {
-        Write-Warning "User cancelled the operation."
-    } else {
-        $userpassword = $password | ConvertTo-SecureString -AsPlainText -Force
-        
-        Write-host "Creating Hyper-v user: $username"
-        New-LocalUser -Name $username -Password $userpassword -FullName $username -PasswordNeverExpires:$true
-        Add-LocalGroupMember -SID S-1-5-32-578 -Member $username
+
+    if ($null -eq $password) {
+        Write-Warning "User cancelled — '$HyperVUsername' was not created."
+        Stop-Transcript
+        exit 1
     }
+
+    $securePassword = $password | ConvertTo-SecureString -AsPlainText -Force
+    Write-Host "Creating local user '$HyperVUsername' ..."
+    New-LocalUser -Name $HyperVUsername -Password $securePassword -FullName $HyperVUsername -PasswordNeverExpires:$true
+    Add-LocalGroupMember -SID "S-1-5-32-578" -Member $HyperVUsername
+    Write-Host "'$HyperVUsername' created and added to Hyper-V Administrators."
 }
 
-#*===============================================
-#* Check if installation file exist
-#*===============================================
+# -------  Write registry  -------
 
-if  (Get-LocalUser -Name $username -ErrorAction SilentlyContinue) {
-
+if (Get-LocalUser -Name $HyperVUsername -ErrorAction SilentlyContinue) {
     try {
         New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null
-        Write-Host "Registry value for $SourceFiles created/updated successfully."
+        Write-Host "Registry value '$SourceFiles' written successfully."
     } catch {
-        Write-Error "Failed to create/update registry value for $SourceFiles."
+        Write-Warning "Failed to write registry value for '$SourceFiles'."
     }
-}
-else {
-    Write-Warning "The HyperVUser was not found, exit"
+} else {
+    Write-Warning "'$HyperVUsername' not found — registry not updated."
 }
 
 Stop-Transcript
+exit 0

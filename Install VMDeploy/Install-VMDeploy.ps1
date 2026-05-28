@@ -1,311 +1,144 @@
+
+#Requires -Version 5.1
 <#
-
-.VERSION
-    1.3
-
-.LAST UPDATED
-    260413
-
-.PURPOSE
-    Template for powershell skript
-    Made for Intune installation
- 
-.INFORMATION
-    Loggname will be the name of the script
- 
+.SYNOPSIS
+    VMDeploy — Main orchestrator script (Intune entry point).
+.DESCRIPTION
+    Runs all four installation stages in sequence, tracking state via
+    registry flags written by each child script.
 .EXAMPLE
-    Execute with the following parameters:
-    PowerShell -ExecutionPolicy ByPass -NoProfile -WindowStyle hidden -File NAMEOFSCRIPT.ps1
-
-.UPDATE INFORMATION
-
+    PowerShell -ExecutionPolicy ByPass -NoProfile -WindowStyle Hidden -File Install-VMDeploy.ps1
 #>
 
-#----------------------------------------------------------------------------#
+# -------  Bootstrap: load shared settings  -------
+Import-Module "$PSScriptRoot\Settings.psm1" -Force
 
-#region Parameter
-##*===============================================
-##* PARAMETER
-##*===============================================
-
-#endregion
-
-#region Variables
-##*===============================================
-##* Configuration Variables
-##*===============================================
-
-$SoftwareName = "VMDeploy" <# Enter the name of the software you want to install #>
-
-##*===============================================
-##* Static VARIABLES
-##*===============================================
-$ScriptVersion = "2.0.4"
-$VHDXVersion = "Win11-25H2"
-$DeployIT = "$env:ProgramData\DeployIT"
-$DeployITLogs = "$DeployIT\logs"
-$DeployITDownload = "$DeployIT\Download"
-$RegistryPath = "HKLM:\SOFTWARE\DeployIT"
-$RegistrySoftwareName = "$RegistryPath\$SoftwareName" -replace (" ","")
-$ApplicationKeyPath = "$RegistrySoftwareName"
-$Date = Get-Date -Format yyMMdd
-$Global:InstallerCount = 0
-#endregion
-
-#region Start Transcript and load functions
-##*==========================================================
-##* START TRANSCRIPT AND LOAD FUNCTIONS
-##*==========================================================
-
+$Date    = Get-Date -Format yyMMdd
 $LogPath = "$DeployITLogs\$($MyInvocation.MyCommand.Name)-$Date.log"
 Start-Transcript -Path $LogPath -Force -Append
 
-if(!(Test-Path $DeployITLogs)){
-    write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITLogs -Force
-    }
-    else{
-    write-host "Logpath: $DeployITLogs already exist. No need to create directory."
-    }
+Initialize-DeployEnvironment
 
-if(!(Test-Path $DeployITDownload)){
-    write-host "DownloadPath: $DeployITDownload doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITDownload -Force
-    }
-    else{
-    write-host "DownloadPath: $DeployITDownload already exist. No need to create directory."
-    }
+Write-Host "========================================================"
+Write-Host "   VMDeploy Installer v$ScriptVersion — $CompanyName"
+Write-Host "========================================================"
+Write-Host "Script: $($MyInvocation.MyCommand.Source)"
+Write-Host ""
 
-# if (-not (Test-Path $RegistryApplicationName)) {
-#     Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
-#     New-Item -Path $RegistryApplicationName -Force
-#     } 
-#     else {
-#     Write-Host "Registry key $RegistryApplicationName already exists."
-#     }
+# -------  Helper: run a child script and check exit code  -------
+function Invoke-Stage {
+    param(
+        [string]$Label,
+        [string]$ScriptPath
+    )
+    Write-Host "========================================================"
+    Write-Host "  $Label"
+    Write-Host "========================================================"
 
-if (-not (Test-Path $RegistrySoftwareName)) 
-{
-    Write-Host "Registry key $RegistrySoftwareName does not exist. Creating it..."
-    New-Item -Path $RegistrySoftwareName -Force
-} else {
-    Write-Host "Registry key $RegistrySoftwareName already exists."
+    PowerShell.exe -ExecutionPolicy Bypass -NoProfile -File $ScriptPath
+    $ec = $LASTEXITCODE
+
+    # 1641 = reboot required (Hyper-V feature install) — treat as success for flow
+    if ($ec -eq 0 -or $ec -eq 1641) {
+        Write-Host "$Label completed (exit $ec)."
+        return $ec
+    } else {
+        Write-Warning "$Label failed with exit code $ec."
+        Stop-Transcript
+        exit 1
+    }
 }
 
-#endregion
+# -------  Stage 1: Install Hyper-V features  -------
 
-#region Information
-##*===============================================
-##* INFORMATION
-##*===============================================
-Write-Host "========================================================"
-Write-Host "                     INFORMATION"
-Write-Host "========================================================"
-Write-Host " "
+$hyperVStamp = Get-ItemProperty -Path $RegistrySoftwareName -Name "Microsoft-Hyper-V-All" -ErrorAction SilentlyContinue
+if ($hyperVStamp) {
+    Write-Host "Stage 1: Hyper-V features already installed — skipping."
+} else {
+    $ec = Invoke-Stage -Label "Stage 1 — Install Hyper-V Features" `
+        -ScriptPath "$PSScriptRoot\1_Install-Features_for_PAW\Install-Features_for_PAW.ps1"
 
-Write-Host "Running File: $($MyInvocation.MyCommand.Source)"
-Write-Host " "
-
-#endregion
-
-#region Custom Variables
-    ##*===============================================
-    ##* CUSTOM VARIABLES
-    ##*===============================================
-
-    
-
-#endregion
-
-#region Custom Functions
-    ##*===============================================
-    ##* CUSTOM FUNCTIONS
-    ##*===============================================
-
-
-
-#endregion
-
-#region Pre-Installation
-		##*===============================================
-		##* PRE-INSTALLATION
-		##*===============================================
-        Write-Host "========================================================"
-        Write-Host "                    PRE-INSTALLATION"
-        Write-Host "========================================================"
-        Write-Host " "
-
-
-
-        Write-Host " "
-#endregion
-
-#region Step 1
-		##*===============================================
-		##* INSTALLATION of HyperV Feature
-		##*===============================================
-        Write-Host "========================================================"
-        Write-Host "                 Install HyperV Feature"
-        Write-Host "========================================================"
-        Write-Host " "
-
-        IF (Get-ItemProperty -Path $RegistrySoftwareName -Name "Microsoft-Hyper-V-All" -ErrorAction SilentlyContinue) {
-            Write-Host -Message "HyperV Feature is already installed." -Level SUCCEEDED
-            $HyperVInstalled = $true
-        }
-        else {
-            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\1_Install-Features_for_PAW\Install-Features_for_PAW.ps1"
-        }
-
-        Write-Host " "
-#endregion
-
-#region Step 2
-		##*===============================================
-		##* Install VMDeploy Configuration
-		##*===============================================
-        Write-Host "========================================================"
-        Write-Host "             Configure VM Deploy Network"
-        Write-Host "========================================================"
-        Write-Host " "
-
-        IF ($HyperVInstalled -eq $true) {
-            Write-Host -Message "HyperV Feature is already installed. Setting network configuration." -Level SUCCEEDED
-            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\2_Install_VMDeploy-configuration\Configure-PAWNetwork.ps1"
-            $PAWNetworkConfigured = $true
-        }
-        else {
-            Write-Host -Message "HyperV Feature is not installed. Cannot set network configuration." -Level WARNING
-            Exit 1
-        }
-
-        Write-Host " "
-
-        Write-Host "========================================================"
-        Write-Host "            Set Firewall Rules for VM Deploy"
-        Write-Host "========================================================"
-        Write-Host " "
-
-        IF ($PAWNetworkConfigured -eq $true) {
-            Write-Host -Message "PAW Network is configured. Setting firewall rules." -Level SUCCEEDED
-            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\2_Install_VMDeploy-configuration\Set-FirewallRules.ps1"
-            $FirewallRulesSet = $true
-        }
-        else {
-            Write-Host -Message "PAW Network is not configured. Cannot set firewall rules." -Level WARNING
-            Exit 1
-        }
-
-        Write-Host " "
-
-        Write-Host "========================================================"
-        Write-Host "                  Add HyperV User"
-        Write-Host "========================================================"
-        Write-Host " "
-
-        IF ($FirewallRulesSet -eq $true) {
-            Write-Host -Message "Firewall rules are set. Adding HyperV user." -Level SUCCEEDED
-            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\2_Install_VMDeploy-configuration\Add-HyperVAdmin.ps1"
-        }
-        else {
-            Write-Host -Message "Firewall rules are not set. Cannot add HyperV user." -Level WARNING
-            Exit 1
-        }
-
-        Write-Host " "
-
-#endregion
-
-#region Step 3
-		##*===============================================
-		##* INSTALLATION
-		##*===============================================
-        Write-Host "========================================================"
-        Write-Host "                Install VM Deploy"
-        Write-Host "========================================================"
-        Write-Host " "
-
-        IF (!(Get-ItemProperty -Path "$ApplicationKeyPath\VMDeploy" -Name "VMDeployVersion" -ErrorAction SilentlyContinue) -eq $ScriptVersion){
-            Write-Host "Older version of VMDeploy is installed, reinstalling to newer version."                
-            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
-        }
-        else {
-            Write-Host "Latest version of VMDeploy is already installed."
-        }
-
-        Write-Host " "
-#endregion
-
-#region Step 4
-		##*===============================================
-		##* Download
-		##*===============================================
-        Write-Host "========================================================"
-        Write-Host "                Download VHDX"
-        Write-Host "========================================================"
-        Write-Host " "
-
-        IF (!(Get-ItemProperty -Path "$ApplicationKeyPath\VMDeploy" -Name "VHDXVersion" -ErrorAction SilentlyContinue) -eq $VHDXVersion){
-            Write-Host "Older version of VHDX is installed, reinstalling to newer version."                
-            Powershell.exe -executionpolicy bypass -File "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
-        }
-        else {
-            Write-Host "Latest version of VHDX is already installed."
-        }
-
-        Write-Host " "
-#endregion
-
-#region Post-Installation
-		##*===============================================
-		##* POST-INSTALLATION
-		##*===============================================
-        Write-Host "========================================================"
-        Write-Host "                   POST-INSTALLATION"
-        Write-Host "========================================================"
-        Write-Host " "
-        
-        IF (Get-Item -Path "$env:ProgramData\VMDeploy\") {
-            Write-Host -Message "VM Deploy installation directory exists. Post-installation checks passed." -Level SUCCEEDED
-            $CheckInstallItem = "$env:ProgramData\VMDeploy"
-        }
-        else {
-            Write-Host -Message "VM Deploy installation directory does not exist. Post-installation checks failed." -Level WARNING
-            Exit 1
-        }
-
-        Write-Host " "
-#endregion
-
-#region Check Installation
-		##*===============================================
-		##* CHECK INSTALLATION
-		##*===============================================        
-        Write-Host "========================================================"
-        Write-Host "                   CHECK INSTALLATION"
-        Write-Host "========================================================"
-        Write-Host " "
-
-        if (Get-Item -path $CheckInstallItem) {
-            Write-Host -Message "Installation finished successfully" -Level SUCCEEDED
-            Write-Host "========================================================"
-
-            try {
-                Set-ItemProperty -Path $ApplicationKeyPath -Name "(Default)" -Value "True" -Force | Out-Null
-                Write-Host "Registry value for $SoftwareName created/updated successfully."
-            } catch {
-                Write-Error "Failed to create/update registry value for $SoftwareName."
-            }
-            
-        Write-Host "========================================================"
+    if ($ec -eq 1641) {
+        Write-Host "Reboot required after Hyper-V feature install. Exiting 1641."
         Stop-Transcript
-        Exit 0
+        exit 1641
     }
-    else {
-        Write-Host -Message "Installation finished unsuccessfully" -Level WARNING
-        Write-Host "========================================================"
-        Stop-Transcript
-        Exit 1
+}
+
+# -------  Stage 2a: Configure PAW network  -------
+
+$pawStamp = Get-ItemProperty -Path $RegistrySoftwareName -Name "PawNetwork" -ErrorAction SilentlyContinue
+if ($pawStamp) {
+    Write-Host "Stage 2a: PAW network already configured — skipping."
+} else {
+    Invoke-Stage -Label "Stage 2a — Configure PAW Network" `
+        -ScriptPath "$PSScriptRoot\2_Install_VMDeploy-configuration\Configure-PAWNetwork.ps1"
+}
+
+# -------  Stage 2b: Set firewall rules  -------
+
+$fwStamp = Get-ItemProperty -Path $RegistrySoftwareName -Name $FirewallRules[0] -ErrorAction SilentlyContinue
+if ($fwStamp) {
+    Write-Host "Stage 2b: Firewall rules already configured — skipping."
+} else {
+    Invoke-Stage -Label "Stage 2b — Set Firewall Rules" `
+        -ScriptPath "$PSScriptRoot\2_Install_VMDeploy-configuration\Set-FirewallRules.ps1"
+}
+
+# -------  Stage 2c: Add Hyper-V admin  -------
+
+$adminStamp = Get-ItemProperty -Path $RegistrySoftwareName -Name "HyperV-Admins" -ErrorAction SilentlyContinue
+if ($adminStamp) {
+    Write-Host "Stage 2c: Hyper-V admin already configured — skipping."
+} else {
+    Invoke-Stage -Label "Stage 2c — Add Hyper-V Admin" `
+        -ScriptPath "$PSScriptRoot\2_Install_VMDeploy-configuration\Add-HyperVAdmin.ps1"
+}
+
+# -------  Stage 3: Install VMDeploy  -------
+
+$appStamp = Get-ItemPropertyValue -Path $ApplicationKeyPath -Name "VMDeployVersion" -ErrorAction SilentlyContinue
+if ($appStamp -eq $ScriptVersion) {
+    Write-Host "Stage 3: VMDeploy $ScriptVersion already installed — skipping."
+} else {
+    Invoke-Stage -Label "Stage 3 — Install VMDeploy" `
+        -ScriptPath "$PSScriptRoot\3_Install_VMDeploy\Install-VMDeploy.ps1"
+}
+
+# -------  Stage 4: Download VHDX  -------
+
+$vhdxStamp = Get-ItemPropertyValue -Path $ApplicationKeyPath -Name "WindowsVHDX" -ErrorAction SilentlyContinue
+if ($vhdxStamp -eq $VHDXVersion) {
+    Write-Host "Stage 4: VHDX $VHDXVersion already downloaded — skipping."
+} else {
+    Invoke-Stage -Label "Stage 4 — Download Windows VHDX" `
+        -ScriptPath "$PSScriptRoot\4_Download_Windows_VHDX\download-vhdx.ps1"
+}
+
+# -------  Post-install verification  -------
+
+Write-Host "========================================================"
+Write-Host "                Post-Install Verification"
+Write-Host "========================================================"
+
+$vmDeployDir = "$env:ProgramData\VMDeploy"
+if (Test-Path $vmDeployDir) {
+    Write-Host "VMDeploy directory found: $vmDeployDir"
+
+    try {
+        Set-ItemProperty -Path $ApplicationKeyPath -Name "(Default)" -Value "True" -Force
+        Write-Host "Registry default value set."
+    } catch {
+        Write-Warning "Could not set registry default value."
     }
 
-#endregion
+    Write-Host "========================================================"
+    Write-Host "          Installation completed successfully."
+    Write-Host "========================================================"
+    Stop-Transcript
+    exit 0
+} else {
+    Write-Warning "VMDeploy directory not found — installation may have failed."
+    Stop-Transcript
+    exit 1
+}

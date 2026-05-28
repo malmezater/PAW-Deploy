@@ -1,94 +1,46 @@
-##*===============================================
-##* Custom variables
-##*===============================================
 
-$ApplicationName = "VMDeploy"
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+    Stage 2b — Disable the three PAW Hyper-V firewall rules.
+#>
 
-##*===============================================
-##* Static variables
-##*===============================================
+# -------  Bootstrap: load shared settings  -------
+Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
 
-$RegistryPath = "HKLM:\SOFTWARE\DeployIT"
-$RegistryApplicationName = "$RegistryPath\$ApplicationName"
-$ApplicationKeyPath = "$RegistryApplicationName"
-$DeployIT = "C:\ProgramData\DeployIT"
-$DeployITLogs = "$DeployIT\logs"
-$DeployITDownload = "$DeployIT\Download"
-$PowershellLogPath = "$DeployITLogs\$SourceFiles-PS.log"
+$SourceFiles = "FirewallRules"
+$LogPath     = "$DeployITLogs\$SourceFiles-PS.log"
+Start-Transcript -Path $LogPath -Force -Append
 
-##*===============================================
-##* DeployIT LOG AND DOWNLOAD DIRECTORY
-##*===============================================
+Initialize-DeployEnvironment
 
-if(!(Test-Path $DeployITLogs)){
-    write-host "Logpath: $DeployITLogs doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITLogs -Force
-    }
-    else{
-    write-host "Logpath: $DeployITLogs already exist. No need to create directory."
-    }
+# -------  Disable firewall rules  -------
 
-if(!(Test-Path $DeployITDownload)){
-    write-host "DownloadPath: $DeployITDownload doesn't exist. Creating directory."
-    New-Item -ItemType Directory $DeployITDownload -Force
-    }
-    else{
-    write-host "DownloadPath: $DeployITDownload already exist. No need to create directory."
+Write-Host "========================================================"
+Write-Host "            Set Firewall Rules for VM Deploy"
+Write-Host "========================================================"
+
+foreach ($Rule in $FirewallRules) {
+    $fw = Get-NetFirewallRule -Name $Rule -ErrorAction SilentlyContinue
+    if (-not $fw) {
+        Write-Warning "Firewall rule '$Rule' not found — skipping."
+        continue
     }
 
-    # Check if the DeployIT key exists, if not, create it
-if (-not (Test-Path $RegistryApplicationName)) 
-    {
-        Write-Host "Registry key $RegistryApplicationName does not exist. Creating it..."
-        New-Item -Path $RegistryApplicationName -Force
-    } 
-    else {
-        Write-Host "Registry key $RegistryApplicationName already exists."
-    }
-
-
-##*===============================================
-##* Custom variables for Firewall Rules
-##*===============================================
-    $SourceFiles = "FirewallRules"
-##*===============================================
-
-
-##*===============================================
-##* INSTALLATION Firewall Rules
-##*===============================================
-
-Start-Transcript -Path $PowershellLogPath -Force -Append
-Write-Host "Checking if Firewall settings are disabled..."
-
-$Rules = @("VIRT-WMI-RPCSS-In-TCP-NoScope","VIRTCL-WMI-RPCSS-In-TCP-NoScope","VIRT-REMOTEDESKTOP-In-TCP-NoScope")
-
-
-$Rules | ForEach-Object {
-    $Application = $_
-
-    if ((Get-NetFirewallRule -Name $_).Enabled -eq "False") {
-        Write-Host "Firewall rule $_ is disabled"
-
-        # Create or update the registry value
-        try {
-            New-ItemProperty -Path $ApplicationKeyPath -Name $Application -Value "Disabled" -PropertyType String -Force | Out-Null
-            Write-Host "Registry value for $Application created/updated successfully."
-        } catch {
-            Write-Error "Failed to create/update registry value for $Application."
-        }
+    if ($fw.Enabled -eq $false) {
+        Write-Host "Rule '$Rule' is already disabled."
     } else {
-        Write-Host "Disabling firewall rule $_"
-        Set-NetFirewallRule -Name $_ -Enabled False
+        Write-Host "Disabling rule '$Rule' ..."
+        Set-NetFirewallRule -Name $Rule -Enabled False
+    }
 
-        # Create or update the registry value
-        try {
-            New-ItemProperty -Path $ApplicationKeyPath -Name $Application -Value "Disabled" -PropertyType String -Force | Out-Null
-            Write-Host "Registry value for $Application created/updated successfully."
-        } catch {
-            Write-Error "Failed to create/update registry value for $Application."
-        }
+    try {
+        New-ItemProperty -Path $ApplicationKeyPath -Name $Rule -Value "Disabled" -PropertyType String -Force | Out-Null
+        Write-Host "Registry value for '$Rule' written successfully."
+    } catch {
+        Write-Warning "Failed to write registry value for '$Rule'."
     }
 }
 
 Stop-Transcript
+exit 0

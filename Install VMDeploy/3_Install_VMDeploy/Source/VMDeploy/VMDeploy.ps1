@@ -554,7 +554,7 @@ desktopheight:i:1200
 
     }else{
     
-        Stop-VM -Name $VMname
+        Stop-VM -Name $VMname -Confirm:$false
         Write-Verbose "VM Done"
 
     }
