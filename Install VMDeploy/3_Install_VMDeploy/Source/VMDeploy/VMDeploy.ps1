@@ -454,6 +454,8 @@ desktopheight:i:1200
     # Restart the VM
     Write-Verbose "Restarting VM"
     Stop-VM -Name $VMname -Confirm:$false
+    do { Start-Sleep -Seconds 3 } until ((Get-VM -Name $VMname).State -eq 'Off')
+    
     if(!($Template -like "*OOBE*")){
         
         Get-VM -Name $VMname | Set-VMSecurityPolicy -Shielded $true -Verbose
