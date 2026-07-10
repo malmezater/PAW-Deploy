@@ -321,6 +321,5 @@ After running these and a `sysprep /generalize /oobe /shutdown`, the resulting V
 
 ---
 
-Refrence and thank you to Mikael Nyström. 
-[https://github.com/DeploymentBunny/PAWDeplo](https://github.com/DeploymentBunny/PAWDeploy)
-Thank you [Mikael Nyström (DeploymentBunny)](https://github.com/DeploymentBunny).
+## Thank you to
+[Mikael Nyström (DeploymentBunny)](https://github.com/DeploymentBunny).
