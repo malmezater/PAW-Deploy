@@ -27,7 +27,7 @@ $Script:LocalInstall   = $true
 ##* you are doing.
 ##*=============================================
 
-$Script:ScriptVersion = "2.2.0"
+$Script:ScriptVersion = "2.2.1"
 $Script:SoftwareName  = "VMDeploy"
 
 # Paths

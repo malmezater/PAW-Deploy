@@ -8,7 +8,7 @@ The solution is designed to be deployed via **Microsoft Intune** (as a Win32 app
 
 ## Version
 
-- Installer version: **2.2.0**
+- Installer version: **2.2.1**
 - Default VHDX tag: **Win11-25H2**
 
 <p align="center">
@@ -68,7 +68,7 @@ Install-PAWDeploy.ps1   (Intune entry point / orchestrator)
 
 Each stage:
 
-- Imports the shared [Settings.psm1](Install/Settings.psm1) module.
+- Imports the shared [Settings.psm1](Install%20PAWDeploy/Settings.psm1) module.
 - Calls `Initialize-DeployEnvironment` to create log/download folders and the registry key.
 - Writes a "stamp" value to the registry on success so the orchestrator can skip it next time.
 
@@ -78,13 +78,13 @@ Each stage:
 
 | Path | Purpose |
 | --- | --- |
-| [Install/](Install/) | Current production installer (run by Intune). |
-| [Install/Install-PAWDeploy.ps1](Install/Install-PAWDeploy.ps1) | Top-level orchestrator that runs all four stages. |
-| [Install/Settings.psm1](Install/Settings.psm1) | Shared module with paths, registry keys, and config. |
-| [Install/1_Install-Features_for_PAW/](Install/1_Install-Features_for_PAW/) | Stage 1 - Hyper-V feature enablement. |
-| [Install/2_Install_VMDeploy-configuration/](Install/2_Install_VMDeploy-configuration/) | Stage 2 - Network switch, firewall rules, Hyper-V admins. |
-| [Install/3_Install_VMDeploy/](Install/3_Install_VMDeploy/) | Stage 3 - Deploys the VMDeploy application files. |
-| [Install/4_Download_Windows_VHDX/](Install/4_Download_Windows_VHDX/) | Stage 4 - Downloads the Windows 11 VHDX template (Azure Blob, SMB share, or HTTP/HTTPS). |
+| [Install PAWDeploy/](Install%20PAWDeploy/) | Current production installer (run by Intune). |
+| [Install PAWDeploy/Install-PAWDeploy.ps1](Install%20PAWDeploy/Install-PAWDeploy.ps1) | Top-level orchestrator that runs all four stages. |
+| [Install PAWDeploy/Settings.psm1](Install%20PAWDeploy/Settings.psm1) | Shared module with paths, registry keys, and config. |
+| [Install PAWDeploy/1_Install-Features_for_PAW/](Install%20PAWDeploy/1_Install-Features_for_PAW/) | Stage 1 - Hyper-V feature enablement. |
+| [Install PAWDeploy/2_Install_VMDeploy-configuration/](Install%20PAWDeploy/2_Install_VMDeploy-configuration/) | Stage 2 - Network switch, firewall rules, Hyper-V admins. |
+| [Install PAWDeploy/3_Install_VMDeploy/](Install%20PAWDeploy/3_Install_VMDeploy/) | Stage 3 - Deploys the VMDeploy application files. |
+| [Install PAWDeploy/4_Download_Windows_VHDX/](Install%20PAWDeploy/4_Download_Windows_VHDX/) | Stage 4 - Downloads the Windows 11 VHDX template (Azure Blob, SMB share, or HTTP/HTTPS). |
 
 ---
 
@@ -103,7 +103,7 @@ Each stage:
 
 ## Configuration
 
-All deployment-wide settings live in [Install/Settings.psm1](Install/Settings.psm1). Edit the user-configurable block **before packaging** the installer:
+All deployment-wide settings live in [Install PAWDeploy/Settings.psm1](Install%20PAWDeploy/Settings.psm1). Edit the user-configurable block **before packaging** the installer:
 
 ```powershell
 $Script:CompanyName  = "COMPANY NAME"   # Used in registry path and ProgramData folder
@@ -116,7 +116,7 @@ Derived values that you normally should not need to change:
 
 | Variable | Value |
 | --- | --- |
-| `$ScriptVersion` | `2.2.0` |
+| `$ScriptVersion` | `2.2.1` |
 | `$SoftwareName` | `VMDeploy` |
 | `$DeployPath` | `C:\ProgramData\<CompanyName>` |
 | `$DeployITLogs` | `C:\ProgramData\<CompanyName>\Logs` |
@@ -148,9 +148,9 @@ If Stage 1 enables Hyper-V for the first time, the script exits with code **1641
      ```
      PowerShell.exe -ExecutionPolicy ByPass -NoProfile -WindowStyle Hidden -File Install-PAWDeploy.ps1
      ```
-   - **Uninstall command:** your preferred uninstall script (see [Windows11/Start-VMDeploy/Remove VMDeploy/](Windows11/Start-VMDeploy/Remove%20VMDeploy/)).
+   - **Uninstall command:** your preferred uninstall script (manually delete `C:\ProgramData\VMDeploy` and any Start menu shortcuts; see the [Uninstall / Re-run](#uninstall--re-run) section).
    - **Detection rule:** registry value
-     `HKLM:\SOFTWARE\<CompanyName>\VMDeploy` → `VMDeployVersion` equals `2.2.0`.
+     `HKLM:\SOFTWARE\<CompanyName>\VMDeploy` → `VMDeployVersion` equals `2.2.1`.
    - **Behavior:** install as **system**; allow **device restart** (exit code 1641).
 
 ---
@@ -159,12 +159,12 @@ If Stage 1 enables Hyper-V for the first time, the script exits with code **1641
 
 | Stage | Script | What it does | Registry stamp |
 | --- | --- | --- | --- |
-| 1 | [Install-Features_for_PAW.ps1](Install/1_Install-Features_for_PAW/Install-Features_for_PAW.ps1) | Enables all required Hyper-V Optional Features (with a 3-attempt verification loop). | One value per feature (e.g. `Microsoft-Hyper-V-All = Enabled`). |
-| 2a | [Configure-PAWNetwork.ps1](Install/2_Install_VMDeploy-configuration/Configure-PAWNetwork.ps1) | Creates an external VMSwitch named **"Ethernet Cable"** on the first active physical NIC. | `PawNetwork = True` |
-| 2b | [Set-FirewallRules.ps1](Install/2_Install_VMDeploy-configuration/Set-FirewallRules.ps1) | Disables Hyper-V remoting firewall rules that interfere with PAW usage. | One value per rule name. |
-| 2c | [Add-HyperVAdmin.ps1](Install/2_Install_VMDeploy-configuration/Add-HyperVAdmin.ps1) | Adds the signed-in user to the **Hyper-V Administrators** local group and creates the `Hypervuser` service account. | `HyperV-Admins = True` |
-| 3 | [Install-VMDeploy.ps1](Install/3_Install_VMDeploy/Install-VMDeploy.ps1) | Robocopies the `Source/VMDeploy` tree to `C:\ProgramData\VMDeploy`. Creates Start Menu shortcuts (Run as administrator) only when `$LocalInstall = $true` in `Settings.psm1`. Set to `$false` for Intune/ConfigMgr deployments. | `VMDeployVersion = 2.2.0` |
-| 4 | [download-vhdx.ps1](Install/4_Download_Windows_VHDX/download-vhdx.ps1) | Downloads the Windows 11 VHDX template to `C:\ProgramData\VMDeploy\Images\Windows11.vhdx`. Automatically selects the transfer method based on `$DownloadUrl`: Azure Blob/Files → AzCopy (auto-installed), `\\server\share` → Copy-Item, HTTP/HTTPS → BITS with Invoke-WebRequest fallback. | `WindowsVHDX = Win11-25H2` |
+| 1 | [Install-Features_for_PAW.ps1](Install%20PAWDeploy/1_Install-Features_for_PAW/Install-Features_for_PAW.ps1) | Enables all required Hyper-V Optional Features (with a 3-attempt verification loop). | One value per feature (e.g. `Microsoft-Hyper-V-All = Enabled`). |
+| 2a | [Configure-PAWNetwork.ps1](Install%20PAWDeploy/2_Install_VMDeploy-configuration/Configure-PAWNetwork.ps1) | Creates an external VMSwitch named **"Ethernet Cable"** on the first active physical NIC. | `PawNetwork = True` |
+| 2b | [Set-FirewallRules.ps1](Install%20PAWDeploy/2_Install_VMDeploy-configuration/Set-FirewallRules.ps1) | Disables Hyper-V remoting firewall rules that interfere with PAW usage. | One value per rule name. |
+| 2c | [Add-HyperVAdmin.ps1](Install%20PAWDeploy/2_Install_VMDeploy-configuration/Add-HyperVAdmin.ps1) | Adds the signed-in user to the **Hyper-V Administrators** local group and creates the `Hypervuser` service account. | `HyperV-Admins = True` |
+| 3 | [Install-VMDeploy.ps1](Install%20PAWDeploy/3_Install_VMDeploy/Install-VMDeploy.ps1) | Robocopies the `Source/VMDeploy` tree to `C:\ProgramData\VMDeploy`. Creates Start Menu shortcuts (Run as administrator) only when `$LocalInstall = $true` in `Settings.psm1`. Set to `$false` for Intune/ConfigMgr deployments. | `VMDeployVersion = 2.2.1` |
+| 4 | [download-vhdx.ps1](Install%20PAWDeploy/4_Download_Windows_VHDX/download-vhdx.ps1) | Downloads the Windows 11 VHDX template to `C:\ProgramData\VMDeploy\Images\Windows11.vhdx`. Automatically selects the transfer method based on `$DownloadUrl`: Azure Blob/Files → AzCopy (auto-installed), `\\server\share` → Copy-Item, HTTP/HTTPS → BITS with Invoke-WebRequest fallback. | `WindowsVHDX = Win11-25H2` |
 
 The orchestrator skips any stage whose stamp matches the expected value, making the installer safe to re-run.
 
@@ -229,10 +229,10 @@ next to `Config.xml`:
 
 | File | Purpose |
 | --- | --- |
-| [Apps.xml](Install%20VMDeploy/3_Install_VMDeploy/Source/VMDeploy/Apps.xml) | Defines named profiles of winget application IDs. |
-| [Modules.xml](Install%20VMDeploy/3_Install_VMDeploy/Source/VMDeploy/Modules.xml) | Defines named profiles of PowerShell module names. |
+| [Apps.xml](Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Apps.xml) | Defines named profiles of winget application IDs. |
+| [Modules.xml](Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Modules.xml) | Defines named profiles of PowerShell module names. |
 
-A template references a profile by name in [Config.xml](Install%20VMDeploy/3_Install_VMDeploy/Source/VMDeploy/Config.xml):
+A template references a profile by name in [Config.xml](Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Config.xml):
 
 ```xml
 <Template Name="Windows 11 - WORKGROUP">
@@ -281,7 +281,7 @@ sysprepped, so app/module configuration should be delivered via Intune).
 
 ### How it runs
 
-After the VM has booted and BitLocker has finished encrypting, [VMDeploy.ps1](Install%20VMDeploy/3_Install_VMDeploy/Source/VMDeploy/VMDeploy.ps1) connects to the guest via **PowerShell Direct** (`Invoke-Command -VMName`) as `\Administrator` and runs the following steps in order:
+After the VM has booted and BitLocker has finished encrypting, [VMDeploy.ps1](Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/VMDeploy.ps1) connects to the guest via **PowerShell Direct** (`Invoke-Command -VMName`) as `\Administrator` and runs the following steps in order:
 
 **1. Register winget**
 
@@ -310,12 +310,12 @@ Every package and module result is logged in the deploy transcript with its exit
 
 ## Creating a Template VHDX
 
-The [Create Templade VHDX/](Create%20Templade%20VHDX/) folder contains helpers used when building the reference Windows 11 image that ships as `Windows11.vhdx`:
+Building the reference Windows 11 image that ships as `Windows11.vhdx` typically involves the following preparation steps before sysprep:
 
-- [Install-Module.ps1](Create%20Templade%20VHDX/Install-Module.ps1) - installs Graph / Intune / AutoPilot PowerShell modules used during image preparation.
-- [Uninstall-WinApps.ps1](Create%20Templade%20VHDX/Uninstall-WinApps.ps1) - removes pre-installed Microsoft Store apps.
-- [Remove-TempFiles.ps1](Create%20Templade%20VHDX/Remove-TempFiles.ps1) - cleans temp folders prior to sysprep.
-- [LayoutModification.xml](Create%20Templade%20VHDX/LayoutModification.xml) - Start menu layout applied to the template.
+- **Install PowerShell modules** — install Graph / Intune / AutoPilot modules used during image preparation.
+- **Uninstall built-in Store apps** — remove unwanted pre-installed Microsoft Store apps.
+- **Clean temp files** — clean temp folders prior to sysprep.
+- **Apply Start layout** — a `LayoutModification.xml` can be applied to customise the Start menu.
 
 After running these and a `sysprep /generalize /oobe /shutdown`, the resulting VHDX is placed in the location referenced by `$DownloadUrl` in `Settings.psm1` (Azure Blob storage, an SMB share, or a web server).
 

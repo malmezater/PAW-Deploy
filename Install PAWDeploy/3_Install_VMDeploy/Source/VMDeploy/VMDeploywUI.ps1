@@ -61,7 +61,7 @@ $PictureBox1                     = New-Object system.Windows.Forms.PictureBox
 $PictureBox1.width               = 150
 $PictureBox1.height              = 150
 $PictureBox1.location            = New-Object System.Drawing.Point(630,0)
-$PictureBox1.imageLocation       = "$RootFolder\image.png"
+$PictureBox1.imageLocation       = "$RootFolder\\images\\PAWDeploy.png"
 $PictureBox1.SizeMode            = [System.Windows.Forms.PictureBoxSizeMode]::zoom
 
 $OkButton                        = New-Object system.Windows.Forms.Button

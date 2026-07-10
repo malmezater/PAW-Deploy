@@ -2,7 +2,7 @@
 
 ## Before You Start
 
-Edit the following settings in `Settings.psm1` (located in the `Install VMDeploy` folder) before packaging or deploying.
+Edit the following settings in `Settings.psm1` (located in the `Install PAWDeploy` folder) before packaging or deploying.
 
 | Setting | Description |
 | --- | --- |
@@ -44,8 +44,6 @@ PowerShell -ExecutionPolicy ByPass -NoProfile -File Install-PAWDeploy.ps1
 The installer writes multiple registry values under `HKLM\SOFTWARE\<CompanyName>\VMDeploy`.
 Full list in [VMDeploy-Detections.txt](VMDeploy-Detections.txt).
 
-**Detection script settings:**
-
 | Setting | Value |
 | --- | --- |
 | Use a custom detection script | No |
@@ -67,8 +65,8 @@ Create two separate applications to let users deploy and remove VMs after instal
 
 | Application | Command |
 | --- | --- |
-| Deploy VM | `PowerShell -ExecutionPolicy ByPass -NoProfile -File "C:\ProgramData\VMDeploy\VMDeploywUI.ps1"` |
-| Remove VM | `PowerShell -ExecutionPolicy ByPass -NoProfile -File "C:\ProgramData\VMDeploy\VMRemovewUI.ps1"` |
+| Deploy Windows | `PowerShell -ExecutionPolicy ByPass -NoProfile -File "C:\ProgramData\VMDeploy\VMDeploywUI.ps1"` |
+| Destroy VM | `PowerShell -ExecutionPolicy ByPass -NoProfile -File "C:\ProgramData\VMDeploy\VMRemovewUI.ps1"` |
 
 ---
 

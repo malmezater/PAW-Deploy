@@ -74,7 +74,7 @@ Value 13
 Value 14
   Name:            VMDeployVersion
   Type:            REG_SZ
-  Data:            2.2.0
+  Data:            2.2.1
 
 Value 15
   Name:            WindowsVHDX

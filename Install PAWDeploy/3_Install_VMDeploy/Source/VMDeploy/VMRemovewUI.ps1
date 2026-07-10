@@ -82,7 +82,7 @@ $PictureBox1                     = New-Object system.Windows.Forms.PictureBox
 $PictureBox1.width               = 100
 $PictureBox1.height              = 100
 $PictureBox1.location            = New-Object System.Drawing.Point(462,1)
-$PictureBox1.imageLocation       = "$RootFolder\image.png"
+$PictureBox1.imageLocation       = "$RootFolder\\images\\PAWDeploy.png"
 $PictureBox1.SizeMode            = [System.Windows.Forms.PictureBoxSizeMode]::zoom
 $Form.controls.AddRange(@($Close,$Connect,$Label1,$Label2,$TextBox1,$ListBox1,$Delete,$PictureBox1))
 
