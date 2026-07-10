@@ -1,6 +1,6 @@
 # Default Intune Files
 
-The pre-packaged `.intunewin` files in this folder can be used directly in Intune **if you are using the default values** in `Settings.psm1`.
+The pre-packaged `.intunewin` files in this folder can be used directly in Intune **if you are using the default value of Company Name** in `Settings.psm1`.
 
 ## Default Values
 
@@ -20,12 +20,11 @@ Launches the VMDeploy UI (`PAWDeploywUI.ps1`) to create virtual machines.
 | Intune field | Value |
 |---|---|
 | **Install command** | `powershell.exe -ExecutionPolicy Bypass -File Run-VMDeploy.ps1` |
-| **Uninstall command** | *(use Remove VMDeploy below)* |
 | **Detection rule** | File exists: `C:\ProgramData\DeployIT\Check\Run-PAWDeploy.txt` |
 
 ---
 
-## Remove VMDeploy
+## Remove VM
 
 Launches the VMDeploy UI (`VMRemovewUI.ps1`) to remove virtual machines.
 
@@ -38,4 +37,5 @@ Launches the VMDeploy UI (`VMRemovewUI.ps1`) to remove virtual machines.
 
 ## Custom Values
 
-If you have changed `CompanyName` or other values in `Settings.psm1`, you will need to repackage the files using **IntuneWinAppUtil** and update the detection rules above.
+If you have changed `CompanyName` values in `Settings.psm1`, you will need to repackage the files using **IntuneWinAppUtil** and update the detection rules above.
+You will still need to add your own download link for your VHDX. 
