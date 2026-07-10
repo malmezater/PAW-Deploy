@@ -11,7 +11,7 @@
 ##* Edit these values before deploying
 ##*=============================================
 
-$Script:CompanyName    = "COMPANY NAME"        # Name of the company deploying the software
+$Script:CompanyName    = "DeployIT"            # Name of the company deploying the software / Default name is "DeployIT"
 $Script:DownloadUrl    = "Download URL"        # Full URL to the VHDX file
 $Script:VHDXVersion    = "Win11-25H2"          # Version tag for the VHDX file
 

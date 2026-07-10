@@ -106,7 +106,7 @@ Each stage:
 All deployment-wide settings live in [Install PAWDeploy/Settings.psm1](Install%20PAWDeploy/Settings.psm1). Edit the user-configurable block **before packaging** the installer:
 
 ```powershell
-$Script:CompanyName  = "COMPANY NAME"   # Used in registry path and ProgramData folder
+$Script:CompanyName  = "COMPANY NAME"   # Used in registry path and ProgramData folder / Default will be DeployIT
 $Script:DownloadUrl  = "Download URL"   # Full SAS / HTTPS URL to the VHDX
 $Script:VHDXVersion  = "Win11-25H2"     # Stored as a registry stamp
 $Script:LocalInstall = $true            # $true = local install (shortcuts created); $false = Intune/ConfigMgr (no shortcuts)

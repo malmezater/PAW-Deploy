@@ -41,7 +41,7 @@ PowerShell -ExecutionPolicy ByPass -NoProfile -File Install-PAWDeploy.ps1
 
 ### Detection rules
 
-The installer writes multiple registry values under `HKLM\SOFTWARE\<CompanyName>\VMDeploy`.
+The installer writes multiple registry values under `HKLM\SOFTWARE\<CompanyName>\VMDeploy`. //Default will be DeployIT
 Full list in [VMDeploy-Detections.txt](VMDeploy-Detections.txt).
 
 | Setting | Value |
