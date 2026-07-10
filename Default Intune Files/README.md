@@ -1,41 +1,41 @@
 # Default Intune Files
 
-De färdigpaketerade `.intunewin`-filerna i den här mappen kan användas direkt i Intune **om du använder standardvärdena** i `Settings.psm1`.
+The pre-packaged `.intunewin` files in this folder can be used directly in Intune **if you are using the default values** in `Settings.psm1`.
 
-## Standardvärden
+## Default Values
 
-| Inställning | Standardvärde |
+| Setting | Default value |
 |---|---|
 | `CompanyName` | `DeployIT` |
-| `LocalInstall` | `$false` (Intune-läge, inga genvägar skapas) |
+| `LocalInstall` | `$false` (Intune mode, no shortcuts are created) |
 
-Loggar skrivs till `C:\ProgramData\DeployIT\Logs\`.
+Logs are written to `C:\ProgramData\DeployIT\Logs\`.
 
 ---
 
 ## Run VMDeploy
 
-Startar VMDeploy-gränssnittet (`PAWDeploywUI.ps1`) för att skapa virtuella maskiner.
+Launches the VMDeploy UI (`PAWDeploywUI.ps1`) to create virtual machines.
 
-| Fält i Intune | Värde |
+| Intune field | Value |
 |---|---|
-| **Installationskommando** | `powershell.exe -ExecutionPolicy Bypass -File Run-VMDeploy.ps1` |
-| **Avinstallationskommando** | *(använd Remove VMDeploy nedan)* |
-| **Identifieringsregel** | Fil finns: `C:\ProgramData\DeployIT\Check\Run-PAWDeploy.txt` |
+| **Install command** | `powershell.exe -ExecutionPolicy Bypass -File Run-VMDeploy.ps1` |
+| **Uninstall command** | *(use Remove VMDeploy below)* |
+| **Detection rule** | File exists: `C:\ProgramData\DeployIT\Check\Run-PAWDeploy.txt` |
 
 ---
 
 ## Remove VMDeploy
 
-Startar VMDeploy-gränssnittet (`VMRemovewUI.ps1`) för att ta bort virtuella maskiner.
+Launches the VMDeploy UI (`VMRemovewUI.ps1`) to remove virtual machines.
 
-| Fält i Intune | Värde |
+| Intune field | Value |
 |---|---|
-| **Installationskommando** | `powershell.exe -ExecutionPolicy Bypass -File Remove-VMDeploy.ps1` |
-| **Identifieringsregel** | Fil finns: `C:\ProgramData\DeployIT\Check\Remove-PAWDeploy.txt` |
+| **Install command** | `powershell.exe -ExecutionPolicy Bypass -File Remove-VMDeploy.ps1` |
+| **Detection rule** | File exists: `C:\ProgramData\DeployIT\Check\Remove-PAWDeploy.txt` |
 
 ---
 
-## Anpassade värden
+## Custom Values
 
-Om du har ändrat `CompanyName` eller andra värden i `Settings.psm1` behöver du paketera om filerna med **IntuneWinAppUtil** och uppdatera identifieringsreglerna ovan.
+If you have changed `CompanyName` or other values in `Settings.psm1`, you will need to repackage the files using **IntuneWinAppUtil** and update the detection rules above.
