@@ -63,7 +63,15 @@ Param
 
     [parameter(Position=14,mandatory=$False)]
     [String]
-    $RemoteDesktopUser
+    $RemoteDesktopUser,
+
+    [parameter(Position=15,mandatory=$False)]
+    [String]
+    $WingetApps = "",
+
+    [parameter(Position=16,mandatory=$False)]
+    [String]
+    $PSModules = ""
 )
 
 if($RootFolder -eq "NA"){
@@ -351,7 +359,7 @@ if($VHDFile -ne 'NA'){
 
     # Restart the VM
     Write-Verbose "Restarting VM"
-    Stop-VM -Name $VMname -Confirm:$false
+    Stop-VM -Name $VMname
     Start-VM -Name $VMname
     Wait-VIAVMHaveICLoaded -VMname $VMname
     Wait-VIAVMHaveIP -VMname $VMname
@@ -451,9 +459,183 @@ desktopheight:i:1200
     $($RDPFileTemplate -f $item.VMId) | Out-File "$Env:PUBLIC\Desktop\VMLinks\$($item.VMName).rdp" -Force
 
 
+    # Install winget applications inside the VM (skip for Intune OOBE templates - those are sysprepped)
+    if($WingetApps -and ($Template -notlike "*OOBE*")){
+        Write-Verbose "Installing winget applications: $WingetApps"
+        $AppIds = @($WingetApps -split ',' | Where-Object { $_ -and $_.Trim() -ne '' })
+
+        # Desktop App Installer (winget) is provisioned system-wide on Windows 11, but
+        # its App Execution Alias is only created per-user on the first interactive logon.
+        # On a freshly deployed VM the Administrator account has never logged in
+        # interactively, so the alias does not yet exist. Register it explicitly now.
+        try {
+            Invoke-Command -VMName $VMname -Credential $Cred -ErrorAction Stop -ScriptBlock {
+                $alias = 'C:\Users\Administrator\AppData\Local\Microsoft\WindowsApps\winget.exe'
+                if (-not (Test-Path $alias -ErrorAction SilentlyContinue)) {
+                    Write-Host 'Registering Desktop App Installer (winget) for current user ...'
+                    $manifest = Get-ChildItem 'C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller*\AppxManifest.xml' `
+                        -ErrorAction SilentlyContinue |
+                        Sort-Object FullName -Descending |
+                        Select-Object -First 1 -ExpandProperty FullName
+                    if ($manifest) {
+                        Add-AppxPackage -Register -DisableDevelopmentMode -Path $manifest -ErrorAction Stop
+                        Start-Sleep -Seconds 5
+                        Write-Host "winget alias present: $(Test-Path $alias)"
+                    } else {
+                        Write-Warning 'AppxManifest for DesktopAppInstaller not found in WindowsApps.'
+                    }
+                } else {
+                    Write-Host 'winget App Execution Alias already present.'
+                }
+            }
+        }
+        catch {
+            Write-Warning "winget registration step failed: $($_.Exception.Message)"
+        }
+
+        # One Invoke-Command per package.
+        # PS Direct runs as .\Administrator with the user profile loaded, so the
+        # winget App Execution Alias ($env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe)
+        # is available - no scheduled tasks or PS7 required.
+        # If an installer (e.g. Azure CLI) restarts a service and kills the Hyper-V
+        # socket, the catch block reconnects and continues with the next package.
+        # The killed install typically completes in the background inside the VM.
+        $InstallOneApp = {
+            param($AppId)
+            $winget = 'C:\Users\Administrator\AppData\Local\Microsoft\WindowsApps\winget.exe'
+            if (-not (Test-Path $winget -ErrorAction SilentlyContinue)) {
+                return @{ Id = $AppId; ExitCode = -99; Scope = 'none'; Error = 'winget App Execution Alias not found (registration may have failed)' }
+            }
+            # Try machine scope first (Program Files, visible to all users after reboot)
+            $p = Start-Process -FilePath $winget `
+                -ArgumentList "install --id `"$AppId`" --exact --silent --scope machine --accept-package-agreements --accept-source-agreements" `
+                -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
+            $ec = if ($p) { $p.ExitCode } else { -1 }
+            if ($ec -eq 0 -or $ec -eq -1978335135) {
+                # -1978335135 (0x8A15002B) = already installed
+                return @{ Id = $AppId; ExitCode = $ec; Scope = 'machine'; Error = $null }
+            }
+            # Retry without --scope machine for packages that only support user scope
+            $p2 = Start-Process -FilePath $winget `
+                -ArgumentList "install --id `"$AppId`" --exact --silent --accept-package-agreements --accept-source-agreements" `
+                -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
+            $ec2 = if ($p2) { $p2.ExitCode } else { -1 }
+            return @{ Id = $AppId; ExitCode = $ec2; Scope = 'user'; Error = $null }
+        }
+
+        foreach ($appId in $AppIds) {
+            $appId = $appId.Trim()
+            if (-not $appId) { continue }
+            Write-Verbose "Installing winget app: $appId"
+            try {
+                $r = Invoke-Command -VMName $VMname -Credential $Cred `
+                    -ScriptBlock $InstallOneApp -ArgumentList $appId -ErrorAction Stop
+                if ($r.ExitCode -eq 0 -or $r.ExitCode -eq -1978335135) {
+                    Write-Verbose "  $appId -> OK (scope: $($r.Scope), exit $($r.ExitCode))"
+                } elseif ($r.Error) {
+                    Write-Warning "  $appId -> $($r.Error)"
+                } else {
+                    Write-Warning "  $appId -> exit $($r.ExitCode) (scope: $($r.Scope))"
+                }
+            }
+            catch {
+                # The installer restarted msiserver, which kills both the Hyper-V socket
+                # AND rolls back any in-flight MSI installation. Reconnect and retry once -
+                # after msiserver has stabilised the retry typically succeeds.
+                Write-Verbose "  $appId -> socket dropped during install (msiserver may have restarted - retrying after reconnect)"
+                Wait-VIAVMHavePSDirect -VMname $VMName -Credentials $Cred
+                Write-Verbose "  $appId -> retrying ..."
+                try {
+                    $r2 = Invoke-Command -VMName $VMname -Credential $Cred `
+                        -ScriptBlock $InstallOneApp -ArgumentList $appId -ErrorAction Stop
+                    if ($r2.ExitCode -eq 0 -or $r2.ExitCode -eq -1978335135) {
+                        Write-Verbose "  $appId -> OK on retry (scope: $($r2.Scope), exit $($r2.ExitCode))"
+                    } elseif ($r2.Error) {
+                        Write-Warning "  $appId -> retry: $($r2.Error)"
+                    } else {
+                        Write-Warning "  $appId -> exit $($r2.ExitCode) on retry (scope: $($r2.Scope))"
+                    }
+                }
+                catch {
+                    Write-Warning "  $appId -> retry also failed: $($_.Exception.Message)"
+                }
+            }
+        }
+    }
+
+
+    # Wait for VM to be ready before the PSModules session.
+    # The winget scheduled task may still be finishing up (or restarted services),
+    # so we re-verify connectivity before opening a new PS Direct session.
+    Wait-VIAVMHavePSDirect -VMname $VMName -Credentials $Cred
+
+    # Install PowerShell modules (AllUsers scope, latest version) inside the VM
+    if($PSModules -and ($Template -notlike "*OOBE*")){
+        Write-Verbose "Installing PowerShell modules: $PSModules"
+        $ModuleNames = @($PSModules -split ',' | Where-Object { $_ -and $_.Trim() -ne '' })
+
+        $ModuleScript = {
+            param($Names)
+            $results = @()
+
+            # Ensure TLS 1.2 for PowerShell Gallery
+            try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
+
+            # Make sure NuGet provider and PSGallery are ready
+            try { Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope AllUsers -ErrorAction Stop | Out-Null } catch { }
+            try { Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop } catch { }
+
+            foreach($name in $Names){
+                $name = $name.Trim()
+                if(-not $name){ continue }
+                Write-Host "Installing module $name (AllUsers, latest) ..."
+                try{
+                    Install-Module -Name $name `
+                        -Scope AllUsers `
+                        -Force `
+                        -AllowClobber `
+                        -Repository PSGallery `
+                        -ErrorAction Stop
+                    $installed = Get-Module -ListAvailable -Name $name | Sort-Object Version -Descending | Select-Object -First 1
+                    $results += [pscustomobject]@{
+                        Name    = $name
+                        Version = if($installed){ $installed.Version.ToString() } else { 'unknown' }
+                        Status  = 'Installed'
+                    }
+                }
+                catch{
+                    $results += [pscustomobject]@{
+                        Name    = $name
+                        Version = ''
+                        Status  = 'Failed'
+                        Error   = $_.Exception.Message
+                    }
+                }
+            }
+            return $results
+        }
+
+        try{
+            $modResult = Invoke-Command -VMName $VMname -Credential $Cred `
+                -ScriptBlock $ModuleScript -ArgumentList (,$ModuleNames) -ErrorAction Stop
+            foreach($r in $modResult){
+                if($r.Status -eq 'Installed'){
+                    Write-Verbose ("  {0} {1} -> {2}" -f $r.Name, $r.Version, $r.Status)
+                }
+                else{
+                    Write-Warning ("  {0} -> {1}: {2}" -f $r.Name, $r.Status, $r.Error)
+                }
+            }
+        }
+        catch{
+            Write-Warning "PowerShell module installation block failed: $($_.Exception.Message)"
+        }
+    }
+
+
     # Restart the VM
     Write-Verbose "Restarting VM"
-    Stop-VM -Name $VMname -Confirm:$false
+    Stop-VM -Name $VMname
     do { Start-Sleep -Seconds 3 } until ((Get-VM -Name $VMname).State -eq 'Off')
     
     if(!($Template -like "*OOBE*")){
@@ -556,7 +738,7 @@ desktopheight:i:1200
 
     }else{
     
-        Stop-VM -Name $VMname -Confirm:$false
+        Stop-VM -Name $VMname
         Write-Verbose "VM Done"
 
     }

@@ -7,7 +7,7 @@
     Runs all four installation stages in sequence, tracking state via
     registry flags written by each child script.
 .EXAMPLE
-    PowerShell -ExecutionPolicy ByPass -NoProfile -WindowStyle Hidden -File Install-VMDeploy.ps1
+    PowerShell -ExecutionPolicy ByPass -NoProfile -WindowStyle Hidden -File Install-PAWDeploy.ps1
 #>
 
 # -------  Bootstrap: load shared settings  -------

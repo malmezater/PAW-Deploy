@@ -1,0 +1,12 @@
+<ModuleProfiles>
+  <Profile Name="PAW-Workgroup">
+    <Module Name="Az"                                  DisplayName="Azure Az"                              Default="True"  />
+    <Module Name="Microsoft.Graph"                     DisplayName="Microsoft Graph"                       Default="True"  />
+    <Module Name="ExchangeOnlineManagement"            DisplayName="Exchange Online Management"            Default="True"  />
+    <Module Name="MicrosoftTeams"                      DisplayName="Microsoft Teams"                       Default="False" />
+    <Module Name="PnP.PowerShell"                      DisplayName="PnP PowerShell (SharePoint)"           Default="False" />
+    <Module Name="Microsoft.Online.SharePoint.PowerShell" DisplayName="SharePoint Online Management Shell" Default="False" />
+    <Module Name="MSCommerce"                          DisplayName="MS Commerce"                           Default="False" />
+    <Module Name="Microsoft.Graph.Beta"                DisplayName="Microsoft Graph (Beta)"                Default="False" />
+  </Profile>
+</ModuleProfiles>

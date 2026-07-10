@@ -24,6 +24,8 @@
 <NameSuffix>WG</NameSuffix>
 <VLanID>0</VLanID>
 <VMSwitch>Default Switch</VMSwitch>
+<AppProfile>PAW-Workgroup</AppProfile>
+<ModuleProfile>PAW-Workgroup</ModuleProfile>
 </Template>
 <Template Name="Windows 11 - Intune OOBE">
 <Active>True</Active>

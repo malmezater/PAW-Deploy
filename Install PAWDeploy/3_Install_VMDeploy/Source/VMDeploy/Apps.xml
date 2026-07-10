@@ -1,0 +1,12 @@
+<AppProfiles>
+  <Profile Name="PAW-Workgroup">
+    <App Id="Microsoft.AzureCLI"           DisplayName="Microsoft Azure CLI"  Default="True"   />
+    <App Id="Microsoft.PowerShell"         DisplayName="PowerShell 7"         Default="True"   />
+    <App Id="Microsoft.VisualStudioCode"   DisplayName="Visual Studio Code"   Default="False"  />
+    <App Id="Microsoft.WindowsTerminal"    DisplayName="Windows Terminal"     Default="False"  />
+    <App Id="GitHub.GitHubDesktop"         DisplayName="GitHub Desktop"       Default="False"  />
+    <App Id="7zip.7zip"                    DisplayName="7-Zip"                Default="False"  />
+    <App Id="Notepad++.Notepad++"          DisplayName="Notepad++"            Default="False"  />
+    <App Id="Microsoft.Sysinternals.Suite" DisplayName="Sysinternals Suite"   Default="False"  />
+  </Profile>
+</AppProfiles>

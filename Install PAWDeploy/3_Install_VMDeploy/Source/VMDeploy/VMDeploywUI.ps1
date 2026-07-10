@@ -23,6 +23,24 @@ $XMLDatafile = "$RootFolder\Config.XML"
 $Templates = $XMLData.Settings.Templates.Template | Where-Object Active -EQ $True
 $TemplatesSelection = $Templates.name
 
+#Get App Profiles
+$AppsXMLFile = "$RootFolder\Apps.XML"
+if(Test-Path -Path $AppsXMLFile){
+    [XML]$AppsXMLData = Get-Content -Path $AppsXMLFile
+}
+else{
+    $AppsXMLData = $null
+}
+
+#Get Module Profiles
+$ModulesXMLFile = "$RootFolder\Modules.XML"
+if(Test-Path -Path $ModulesXMLFile){
+    [XML]$ModulesXMLData = Get-Content -Path $ModulesXMLFile
+}
+else{
+    $ModulesXMLData = $null
+}
+
 #Generate Randomname
 $chars = [char[]]"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 $RandomName = [string](($chars[0..25]|Get-Random)+(($chars|Get-Random -Count 3) -join ""))
@@ -247,15 +265,41 @@ $VlanTextBox.Text                = $null
 $result                          = New-Object system.Windows.Forms.TextBox
 $result.multiline                = $true
 $result.width                    = 480
-$result.height                   = 180
-$result.location                 = New-Object System.Drawing.Point(300,250)
+$result.height                   = 45
+$result.location                 = New-Object System.Drawing.Point(300,500)
 $result.Font                     = $Font
+
+$AppsLabel                       = New-Object system.Windows.Forms.Label
+$AppsLabel.text                  = "Applications"
+$AppsLabel.AutoSize              = $true
+$AppsLabel.location              = New-Object System.Drawing.Point(300,230)
+$AppsLabel.Font                  = $Font
+
+$AppsCheckedListBox              = New-Object system.Windows.Forms.CheckedListBox
+$AppsCheckedListBox.width        = 480
+$AppsCheckedListBox.height       = 110
+$AppsCheckedListBox.location     = New-Object System.Drawing.Point(300,250)
+$AppsCheckedListBox.Font         = $Font
+$AppsCheckedListBox.CheckOnClick = $true
+
+$ModulesLabel                    = New-Object system.Windows.Forms.Label
+$ModulesLabel.text               = "PowerShell Modules (AllUsers, latest)"
+$ModulesLabel.AutoSize           = $true
+$ModulesLabel.location           = New-Object System.Drawing.Point(300,365)
+$ModulesLabel.Font               = $Font
+
+$ModulesCheckedListBox              = New-Object system.Windows.Forms.CheckedListBox
+$ModulesCheckedListBox.width        = 480
+$ModulesCheckedListBox.height       = 110
+$ModulesCheckedListBox.location     = New-Object System.Drawing.Point(300,385)
+$ModulesCheckedListBox.Font         = $Font
+$ModulesCheckedListBox.CheckOnClick = $true
 
 foreach($item in $TemplatesSelection){
     [void] $TemplateListbox.Items.Add($item)
 }
 
-$Form.controls.AddRange(@($OkButton,$CancelButton,$SorceServerLabel,$TemplateLabel,$IPAddressLabel,$SubnetLabel,$DNS1Label,$DNS2Label,$GatewayLabel,$VlanLabel,$TemplateListbox,$IPAddressTextBox,$SubnetTextBox,$DNS1TextBox,$DNS2TextBox,$GatewayTextBox,$VlanTextBox,$result,$PictureBox1,$VMnameLabel,$VMnameTextBox,$DJANameLabel,$DJANameTextBox,$DJAPasswordLabel,$DJAPasswordTextBox,$LPasswordLabel,$LPasswordTextBox))
+$Form.controls.AddRange(@($OkButton,$CancelButton,$SorceServerLabel,$TemplateLabel,$IPAddressLabel,$SubnetLabel,$DNS1Label,$DNS2Label,$GatewayLabel,$VlanLabel,$TemplateListbox,$IPAddressTextBox,$SubnetTextBox,$DNS1TextBox,$DNS2TextBox,$GatewayTextBox,$VlanTextBox,$result,$PictureBox1,$VMnameLabel,$VMnameTextBox,$DJANameLabel,$DJANameTextBox,$DJAPasswordLabel,$DJAPasswordTextBox,$LPasswordLabel,$LPasswordTextBox,$AppsLabel,$AppsCheckedListBox,$ModulesLabel,$ModulesCheckedListBox))
 
 #region gui events {
 $OkButton.Add_Click({ OkButtonSelected })
@@ -279,6 +323,62 @@ Function TemplateListboxChanged
     $VMnameTextBox.Text = $env:COMPUTERNAME + "-" + $TemplateData.NameSuffix + $RandomName
     $VlanTextBox.Text = $TemplateData.vlanid
 
+    #Populate the application checklist based on the template's AppProfile
+    $AppsCheckedListBox.Items.Clear()
+    $ProfileName = $TemplateData.AppProfile
+    if($ProfileName -and $AppsXMLData){
+        $Profile = $AppsXMLData.AppProfiles.Profile | Where-Object Name -EQ $ProfileName
+        if($Profile){
+            foreach($App in $Profile.App){
+                $IsDefault = ($App.Default -eq 'True')
+                $DisplayItem = New-Object PSObject -Property @{
+                    Id          = $App.Id
+                    DisplayName = $App.DisplayName
+                }
+                # Override ToString so the CheckedListBox shows the friendly name
+                $DisplayItem | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
+                [void]$AppsCheckedListBox.Items.Add($DisplayItem, $IsDefault)
+            }
+            $AppsLabel.Text = "Applications ($ProfileName)"
+            $AppsCheckedListBox.Enabled = $true
+        }
+        else{
+            $AppsLabel.Text = "Applications (profile '$ProfileName' not found)"
+            $AppsCheckedListBox.Enabled = $false
+        }
+    }
+    else{
+        $AppsLabel.Text = "Applications (none for this template)"
+        $AppsCheckedListBox.Enabled = $false
+    }
+
+    #Populate the PowerShell module checklist based on the template's ModuleProfile
+    $ModulesCheckedListBox.Items.Clear()
+    $ModProfileName = $TemplateData.ModuleProfile
+    if($ModProfileName -and $ModulesXMLData){
+        $ModProfile = $ModulesXMLData.ModuleProfiles.Profile | Where-Object Name -EQ $ModProfileName
+        if($ModProfile){
+            foreach($Mod in $ModProfile.Module){
+                $IsDefault = ($Mod.Default -eq 'True')
+                $DisplayItem = New-Object PSObject -Property @{
+                    Name        = $Mod.Name
+                    DisplayName = $Mod.DisplayName
+                }
+                $DisplayItem | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
+                [void]$ModulesCheckedListBox.Items.Add($DisplayItem, $IsDefault)
+            }
+            $ModulesLabel.Text = "PowerShell Modules - AllUsers, latest ($ModProfileName)"
+            $ModulesCheckedListBox.Enabled = $true
+        }
+        else{
+            $ModulesLabel.Text = "PowerShell Modules (profile '$ModProfileName' not found)"
+            $ModulesCheckedListBox.Enabled = $false
+        }
+    }
+    else{
+        $ModulesLabel.Text = "PowerShell Modules (none for this template)"
+        $ModulesCheckedListBox.Enabled = $false
+    }
 }
 function CancelButtonSelected()
 {
@@ -309,9 +409,25 @@ Function OkButtonSelected
     $DomainAdminPassword = $($DJAPasswordTextBox.text)
     $vlanid = $($VlanTextBox.Text)
 
+    #Collect selected winget app ids (comma separated)
+    $SelectedAppIds = @()
+    foreach($checked in $AppsCheckedListBox.CheckedItems){
+        $SelectedAppIds += $checked.Id
+    }
+    $WingetApps = ($SelectedAppIds -join ',')
+
+    #Collect selected PowerShell module names (comma separated)
+    $SelectedModuleNames = @()
+    foreach($checked in $ModulesCheckedListBox.CheckedItems){
+        $SelectedModuleNames += $checked.Name
+    }
+    $PSModules = ($SelectedModuleNames -join ',')
+
     $DataToExport = @{
         AdminPassword=$AdminPassword
         DomainAdminPassword=$DomainAdminPassword
+        WingetApps=$WingetApps
+        PSModules=$PSModules
     }
     $DataToExport | Export-Clixml -Path "$env:TEMP\vmdeploy.xml"
 

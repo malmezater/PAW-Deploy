@@ -50,26 +50,31 @@ function Install-VMDeployFiles {
     Write-Host "Copying VMDeploy source files ..."
     & Robocopy "$PSScriptRoot\Source" "$env:ProgramData\" /e /it /is /copyall
 
-    $menuDir = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy"
-    New-Item -Path $menuDir -ItemType Directory -Force | Out-Null
+    if ($LocalInstall) {
+        Write-Host "LocalInstall = true - creating Start Menu shortcuts."
+        $menuDir = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy"
+        New-Item -Path $menuDir -ItemType Directory -Force | Out-Null
 
-    $baseArgs = "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy"
-    $iconBase  = "$env:ProgramData\VMDeploy\Icons"
+        $baseArgs = "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy"
+        $iconBase  = "$env:ProgramData\VMDeploy\Icons"
 
-    New-Shortcut -SourceFile "PowerShell.exe" `
-        -DestinationFile "$menuDir\Deploy Windows.lnk" `
-        -Arguments "$baseArgs\VMDeploywUI.ps1" `
-        -IconPath "$iconBase\VMDeploy.ico" -RunAsAdmin
+        New-Shortcut -SourceFile "PowerShell.exe" `
+            -DestinationFile "$menuDir\Deploy Windows.lnk" `
+            -Arguments "$baseArgs\VMDeploywUI.ps1" `
+            -IconPath "$iconBase\VMDeploy.ico" -RunAsAdmin
 
-    New-Shortcut -SourceFile "PowerShell.exe" `
-        -DestinationFile "$menuDir\VM Destroy.lnk" `
-        -Arguments "$baseArgs\VMRemovewUI.ps1" `
-        -IconPath "$iconBase\VMDestroy.ico" -RunAsAdmin
+        New-Shortcut -SourceFile "PowerShell.exe" `
+            -DestinationFile "$menuDir\VM Destroy.lnk" `
+            -Arguments "$baseArgs\VMRemovewUI.ps1" `
+            -IconPath "$iconBase\VMDestroy.ico" -RunAsAdmin
 
-    New-Shortcut -SourceFile "PowerShell.exe" `
-        -DestinationFile "$menuDir\Deploy UbuntuServer.lnk" `
-        -Arguments "$baseArgs\UbuntuServerDeploy.ps1" `
-        -IconPath "$iconBase\DeployUbuntuServer.ico" -RunAsAdmin
+        New-Shortcut -SourceFile "PowerShell.exe" `
+            -DestinationFile "$menuDir\Deploy UbuntuServer.lnk" `
+            -Arguments "$baseArgs\UbuntuServerDeploy.ps1" `
+            -IconPath "$iconBase\DeployUbuntuServer.ico" -RunAsAdmin
+    } else {
+        Write-Host "LocalInstall = false - skipping Start Menu shortcuts (Intune/ConfigMgr deployment)."
+    }
 }
 
 # -------  Install or update  -------

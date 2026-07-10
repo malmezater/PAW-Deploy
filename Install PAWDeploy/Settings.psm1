@@ -11,9 +11,13 @@
 ##* Edit these values before deploying
 ##*=============================================
 
-$Script:CompanyName  = "COMPANY NAME"        # Name of the company deploying the software
-$Script:DownloadUrl  = "Download URL"        # Full URL to the VHDX file
-$Script:VHDXVersion  = "Win11-25H2"          # Version tag for the VHDX file
+$Script:CompanyName    = "COMPANY NAME"        # Name of the company deploying the software
+$Script:DownloadUrl    = "Download URL"        # Full URL to the VHDX file
+$Script:VHDXVersion    = "Win11-25H2"          # Version tag for the VHDX file
+
+# Set to $true for a direct/local install (Start Menu shortcuts will be created).
+# Set to $false when deploying via Intune or Configuration Manager (no shortcuts).
+$Script:LocalInstall   = $true
 
 #endregion
 
@@ -23,7 +27,7 @@ $Script:VHDXVersion  = "Win11-25H2"          # Version tag for the VHDX file
 ##* you are doing.
 ##*=============================================
 
-$Script:ScriptVersion = "2.1.0"
+$Script:ScriptVersion = "2.2.0"
 $Script:SoftwareName  = "VMDeploy"
 
 # Paths
@@ -93,6 +97,7 @@ function Initialize-DeployEnvironment {
 # Export everything so dot-sourced or Import-Module callers both work
 Export-ModuleMember -Function Initialize-DeployEnvironment -Variable `
     CompanyName, ScriptVersion, SoftwareName, DownloadUrl, VHDXVersion, `
+    LocalInstall, `
     DeployPath, DeployITLogs, DeployITDownload, VHDXDownloadPath, `
     RegistryPath, RegistrySoftwareName, ApplicationKeyPath, `
     HyperVFeatures, FirewallRules
