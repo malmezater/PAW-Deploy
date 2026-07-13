@@ -103,7 +103,7 @@ cleanmgr.exe /sagerun:65535
 # Compact the OS (reduces VHDX size)
 Compact.exe /CompactOS:always
 
-# Turn off BitLocker if enabled
+# Turn off BitLocker if enabled (Enabled by default)
 Manage-bde -off C:
 ```
 
@@ -137,19 +137,23 @@ The script removes:
 
 ```powershell
 Mount-VHD "D:\VMNAME\Virtual Hard Disks\DISKNAME.vhdx"
-# Assign a drive letter in Disk Management, e.g. E:
+# Assign a drive letter in Disk Management, e.g. D:
 
 # Run cleanup script against the mounted drive
-# (update $drive in Remove-TempFiles.ps1 to E: first)
+# (update $drive in Remove-TempFiles.ps1 to correct drive letter if needed.)
 .\Remove-TempFiles.ps1
 
-defrag E: /h /x
-defrag E: /h /k /l
-defrag E: /h /x
-defrag E: /h /k
+defrag D: /h /x
+defrag D: /h /k /l
+defrag D: /h /x
+defrag D: /h /k
 
 Dismount-VHD "D:\VMNAME\Virtual Hard Disks\DISKNAME.vhdx"
 Optimize-VHD "D:\VMNAME\Virtual Hard Disks\DISKNAME.vhdx" -Mode Full
 ```
+
+> **Tip:** If your device policys have FDV enabled, you need to disable this to perform this stage. 
+> Reg Value: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Policies\Microsoft\FVE.
+> FDVDenyWriteAccess = 0
 
 The VHDX is now ready to be used by VMDeploy.
