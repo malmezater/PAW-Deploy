@@ -487,6 +487,20 @@ desktopheight:i:1200
                 } else {
                     Write-Host 'winget App Execution Alias already present.'
                 }
+
+                # Reset and refresh the winget source database.
+                # If winget was never run on the VHDX template the COM server is
+                # uninitialised and 'source update' fails (exit 0x8A150002).
+                # 'source reset --force' rebuilds the source configuration from
+                # scratch and forces a fresh index download, which works even on
+                # a completely uninitialised winget installation.
+                if (Test-Path $alias -ErrorAction SilentlyContinue) {
+                    Write-Host 'Resetting and updating winget sources ...'
+                    $p = Start-Process -FilePath $alias `
+                        -ArgumentList 'source reset --force' `
+                        -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
+                    Write-Host "winget source reset exit code: $($p.ExitCode)"
+                }
             }
         }
         catch {

@@ -8,7 +8,7 @@ The solution is designed to be deployed via **Microsoft Intune** (as a Win32 app
 
 ## Version
 
-- Installer version: **2.2.1**
+- Installer version: **2.2.3**
 - Default VHDX tag: **Win11-25H2**
 
 <p align="center">
@@ -116,7 +116,7 @@ Derived values that you normally should not need to change:
 
 | Variable | Value |
 | --- | --- |
-| `$ScriptVersion` | `2.2.1` |
+| `$ScriptVersion` | `2.2.3` |
 | `$SoftwareName` | `VMDeploy` |
 | `$DeployPath` | `C:\ProgramData\<CompanyName>` |
 | `$DeployITLogs` | `C:\ProgramData\<CompanyName>\Logs` |
@@ -310,14 +310,19 @@ Every package and module result is logged in the deploy transcript with its exit
 
 ## Creating a Template VHDX
 
-Building the reference Windows 11 image that ships as `Windows11.vhdx` typically involves the following preparation steps before sysprep:
+Building the reference Windows 11 image that ships as `Windows11.vhdx` typically involves the following preparation steps before sysprep. See [Create Templade VHDX/](Create%20Templade%20VHDX/) for the full guide and scripts.
 
-- **Install PowerShell modules** — install Graph / Intune / AutoPilot modules used during image preparation.
-- **Uninstall built-in Store apps** — remove unwanted pre-installed Microsoft Store apps.
-- **Clean temp files** — clean temp folders prior to sysprep.
-- **Apply Start layout** — a `LayoutModification.xml` can be applied to customise the Start menu.
+| Step | Script | What it does |
+| --- | --- | --- |
+| 1 | — | Install Windows 11 Enterprise in Audit Mode |
+| 2 | [LayoutModification.xml](Create%20Templade%20VHDX/LayoutModification.xml) | Apply custom Start menu layout |
+| 3 | [Uninstall-WinApps.ps1](Create%20Templade%20VHDX/Uninstall-WinApps.ps1) | Remove bloatware and unwanted Store apps |
+| 4 | [Install-Module.ps1](Create%20Templade%20VHDX/Install-Module.ps1) | Install AutoPilot module + `Get-WindowsAutoPilotInfo` script. Also **initialises the winget COM server** (`winget --info` + `winget source update`) — required so VMs can install packages. Skipping causes all winget installs to fail (`0x8A150002`). |
+| 6 | — | Compact OS, run Disk Cleanup, turn off BitLocker |
+| 7 | — | `sysprep /generalize /oobe /shutdown` |
+| 8 | [Remove-TempFiles.ps1](Create%20Templade%20VHDX/Remove-TempFiles.ps1) | Clean temp files from the mounted (offline) VHDX |
 
-After running these and a `sysprep /generalize /oobe /shutdown`, the resulting VHDX is placed in the location referenced by `$DownloadUrl` in `Settings.psm1` (Azure Blob storage, an SMB share, or a web server).
+After sysprep and cleanup, upload the resulting VHDX to the location referenced by `$DownloadUrl` in `Settings.psm1`.
 
 ---
 

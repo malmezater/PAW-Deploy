@@ -12,7 +12,7 @@ PowerShell modules do **not** need to be installed manually here — they are in
 1. Prepare the OS in Audit Mode
 2. Customize the Start Menu
 3. Debloat Windows
-4. Install AutoPilot module
+4. Install AutoPilot module & initialise winget
 5. Compact and clean up
 6. Sysprep
 7. Optimize the VHDX file
@@ -79,15 +79,18 @@ The script:
 
 ---
 
-## Step 4 – Install AutoPilot Module
+## Step 4 – Install AutoPilot Module & Initialise Winget
 
-Run `Install-Module.ps1` to install the AutoPilot PowerShell module and script.
+Run `Install-Module.ps1` to install the AutoPilot PowerShell module and initialise the Desktop App Installer (winget) COM server.
 
-Installs:
-- **Module:** `WindowsAutoPilotIntune`
-- **Script:** `Get-WindowsAutoPilotInfo`
+The script:
+1. Installs the **`WindowsAutoPilotIntune`** module and **`Get-WindowsAutoPilotInfo`** script
+2. Runs `winget --info` to activate the COM server and App Execution Alias infrastructure
+3. Runs `winget source update` to download the initial source index
 
-> Note: All other PowerShell modules are installed automatically by VMDeploy at a later stage.
+> **This step is required.** If winget has never been run on the template machine, all winget package installations on deployed VMs will fail with exit code `0x8A150002`.
+
+> Note: All other PowerShell modules are installed automatically by VMDeploy at deployment time.
 
 ---
 
@@ -152,7 +155,7 @@ Dismount-VHD "D:\VMNAME\Virtual Hard Disks\DISKNAME.vhdx"
 Optimize-VHD "D:\VMNAME\Virtual Hard Disks\DISKNAME.vhdx" -Mode Full
 ```
 
-> **Tip:** If your device policys have FDV enabled, you need to disable this to perform this stage. 
+> **Tip:** If your device policys have FDV Deny Write Access enabled, you need to disable this to perform this stage. 
 > Reg Value: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Policies\Microsoft\FVE.
 > FDVDenyWriteAccess = 0
 
