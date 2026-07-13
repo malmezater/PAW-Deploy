@@ -9,13 +9,168 @@ PowerShell modules do **not** need to be installed manually here — they are in
 
 ## Process Overview
 
+Steps 1–6 run **inside the VM** (Audit Mode / online):
+
 1. Prepare the OS in Audit Mode
 2. Customize the Start Menu
 3. Debloat Windows
 4. Install AutoPilot module & initialise winget
 5. Compact and clean up
-6. Remove temp files (offline)
-7. Run `Invoke-SysprepPrep.ps1` — removes winget source cache, disables network, runs sysprep
+6. Run `Invoke-SysprepPrep.ps1` — removes winget source cache, disables network, runs sysprep → VM shuts down
+
+Steps 7–8 run **on the host** (VHDX mounted offline after sysprep):
+
+7. Clean the offline VHDX with `Remove-TempFiles.ps1`, then defrag and optimize
+8. Upload VHDX to storage
+
+---
+
+## Step 1 – Preparation
+
+- OS: **Windows 11 Enterprise**
+- Enter Audit Mode: `CTRL + Shift + F3`
+
+Install the following tools manually while in Audit Mode:
+
+| Tool | Note |
+|---|---|
+| `C:\PackTools` | Place tools here |
+| IntuneWinPrepTool | For packaging Intune apps |
+| Winget | Enabled via DesktopAppInstaller |
+| .NET Framework 3.5 | Enable via Windows Features |
+
+---
+
+## Step 2 – Customize Start Menu
+
+Copy `LayoutModification.xml` to:
+
+```
+C:\Users\Default\AppData\Local\Microsoft\Windows\Shell\LayoutModification.xml
+```
+
+The layout pins **Microsoft Edge**, **File Explorer**, and **Notepad** to the Start Menu by default.
+
+> `Start.bin` (if applicable) goes in:
+> `C:\Users\Default\AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState`
+
+---
+
+## Step 3 – Debloat Windows
+
+Run `Uninstall-WinApps.ps1` to remove bloatware and unwanted inbox apps.
+
+The script:
+- Removes Appx packages and provisioned packages for all users, except whitelisted apps
+- Disables OneDrive autostart (does not uninstall)
+- Removes the new Outlook app
+- Optionally removes the Microsoft Store
+- Disables Windows consumer features via Group Policy registry keys
+
+**Whitelisted apps** (kept during debloat):
+
+| Package Name | Description |
+|---|---|
+| `Microsoft.WindowsStore` | Microsoft Store |
+| `Microsoft.DesktopAppInstaller` | Required for winget |
+| `Microsoft.SecHealthUI` | Windows Security UI |
+| `Microsoft.UI.Xaml` | UI framework dependency |
+| `Microsoft.VCLibs` | Runtime dependency |
+| `Microsoft.NET.Native` | Runtime dependency |
+| `Microsoft.Windows.ShellExperienceHost` | Shell component |
+| `Microsoft.Windows.StartMenuExperienceHost` | Start Menu |
+| `Microsoft.WindowsNotepad` | Notepad |
+| `Microsoft.WindowsTerminal` | Windows Terminal |
+| `Microsoft.Windows.Photos` | Microsoft Photos |
+
+---
+
+## Step 4 – Install AutoPilot Module & Initialise Winget
+
+Run `Install-Module.ps1` to install the AutoPilot PowerShell module and initialise the Desktop App Installer (winget) COM server.
+
+The script:
+1. Installs the **`WindowsAutoPilotIntune`** module and **`Get-WindowsAutoPilotInfo`** script
+2. Runs `winget --info` to activate the COM server and App Execution Alias infrastructure
+3. Runs `winget source update` to download the initial source index
+
+> **This step is required.** If winget has never been run on the template machine, all winget package installations on deployed VMs will fail with exit code `0x8A150002`.
+
+> All other PowerShell modules are installed automatically by VMDeploy at deployment time.
+
+---
+
+## Step 5 – Compact and Clean Up
+
+Run the following commands inside the VM:
+
+```powershell
+# Run a full Disk Cleanup including system files (recommended)
+cleanmgr.exe /sageset:65535
+cleanmgr.exe /sagerun:65535
+
+# Compact the OS (reduces VHDX size)
+Compact.exe /CompactOS:always
+
+# Turn off BitLocker if enabled
+Manage-bde -off C:
+```
+
+> **Tip:** `cleanmgr /sageset:65535` opens the Disk Cleanup UI where you can select all categories. Running `/sagerun:65535` afterwards executes the cleanup silently.
+
+---
+
+## Step 6 – Sysprep
+
+Run `Invoke-SysprepPrep.ps1` as the **very last action** inside the VM. Do NOT run winget between this script and sysprep.
+
+The script:
+1. Removes all `Microsoft.Winget.Source` per-user packages — these are per-user source index caches that are not provisioned for all users and **will cause sysprep to fail** if not removed.
+2. Disables all network adapters to prevent background tasks from re-triggering a source update before generalisation.
+3. Runs `sysprep /generalize /oobe /shutdown /quiet` — the VM shuts down when complete.
+
+> Remove any Hyper-V checkpoints before proceeding.
+
+---
+
+## Step 7 – Clean, Defrag and Optimize the VHDX (offline)
+
+With the VM shut down after sysprep, mount the VHDX on the host and clean the offline image.
+
+> Update the `$drive` variable in `Remove-TempFiles.ps1` to match the assigned drive letter before running.
+
+`Remove-TempFiles.ps1` removes:
+- Windows Update download cache
+- Temp files (system and user profiles)
+- Prefetch and log files
+- Recycle Bin contents
+- Runs `DISM /Cleanup-Image /StartComponentCleanup /ResetBase` on the offline image
+
+```powershell
+Mount-VHD "D:\VMNAME\Virtual Hard Disks\DISKNAME.vhdx"
+# Assign a drive letter in Disk Management, e.g. D:
+
+.\Remove-TempFiles.ps1   # update $drive inside the script first
+
+defrag D: /h /x
+defrag D: /h /k /l
+defrag D: /h /x
+defrag D: /h /k
+
+Dismount-VHD "D:\VMNAME\Virtual Hard Disks\DISKNAME.vhdx"
+Optimize-VHD "D:\VMNAME\Virtual Hard Disks\DISKNAME.vhdx" -Mode Full
+```
+
+> **Tip:** If your device policy has FDV Deny Write Access enabled you need to disable it first:
+> `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Policies\Microsoft\FVE` → `FDVDenyWriteAccess = 0`
+
+---
+
+## Step 8 – Upload VHDX
+
+Upload the finished VHDX to the storage location referenced by `$DownloadUrl` in `Settings.psm1` (Azure Blob, SMB share, or web server).
+
+The VHDX is now ready to be used by VMDeploy.
 
 ---
 
