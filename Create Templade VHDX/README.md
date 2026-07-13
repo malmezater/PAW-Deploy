@@ -14,8 +14,8 @@ PowerShell modules do **not** need to be installed manually here — they are in
 3. Debloat Windows
 4. Install AutoPilot module & initialise winget
 5. Compact and clean up
-6. Sysprep
-7. Optimize the VHDX file
+6. Remove temp files (offline)
+7. Run `Invoke-SysprepPrep.ps1` — removes winget source cache, disables network, runs sysprep
 
 ---
 
@@ -96,7 +96,7 @@ The script:
 
 ## Step 5 – Compact and Clean Up
 
-Run the following commands inside the VM before Sysprep:
+Run the following commands inside the VM before the final cleanup step:
 
 ```powershell
 # Run a full Disk Cleanup including system files (recommended)
@@ -114,22 +114,24 @@ Manage-bde -off C:
 
 ---
 
-## Step 6 – Sysprep
+## Step 6 – Remove Temp Files (offline)
 
-1. Remove any Checkpoints in Hyper-V Manager before proceeding
-2. Run Sysprep with generalize and shutdown:
+Shut down the VM, mount the VHDX on the host, and run `Remove-TempFiles.ps1` to clean up the offline image.
 
-```
-C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /shutdown
-```
+> Update the `$drive` variable in `Remove-TempFiles.ps1` to match the assigned drive letter before running.
+
+Unmount the VHDX and start the VM again.
 
 ---
 
-## Step 7 – Optimize the VHDX File
+## Step 7 – Sysprep
 
-Mount the VHDX and run `Remove-TempFiles.ps1` to clean up the offline image, then defrag and optimize.
+Run `Invoke-SysprepPrep.ps1` as the **very last action** before the VM shuts down. Do NOT run winget between this script and sysprep.
 
-> Update the `$drive` variable in `Remove-TempFiles.ps1` to match the assigned drive letter before running.
+The script:
+1. Removes all `Microsoft.Winget.Source` per-user packages — these are per-user source index caches created when winget updates its sources. They are not provisioned for all users and **will cause sysprep to fail** if not removed.
+2. Disables all network adapters to prevent background tasks from re-triggering a source update before sysprep.
+3. Runs `sysprep /generalize /oobe /shutdown`.
 
 The script removes:
 - Windows Update download cache

@@ -51,5 +51,6 @@ Write-Host "Updating winget sources (downloads initial index) ..."
 winget source update
 
 Write-Host ""
-Write-Host "Done. You can now run Remove-TempFiles.ps1 and sysprep the image." -ForegroundColor Green
+Write-Host "Done." -ForegroundColor Green
+Write-Host "Next steps: Run Remove-TempFiles.ps1, then Invoke-SysprepPrep.ps1 (removes winget source cache, disables network, runs sysprep)."
 Write-Host "VMDeploy will run 'winget source reset --force' on each new VM to ensure fresh source data."

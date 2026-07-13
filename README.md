@@ -319,8 +319,8 @@ Building the reference Windows 11 image that ships as `Windows11.vhdx` typically
 | 3 | [Uninstall-WinApps.ps1](Create%20Templade%20VHDX/Uninstall-WinApps.ps1) | Remove bloatware and unwanted Store apps |
 | 4 | [Install-Module.ps1](Create%20Templade%20VHDX/Install-Module.ps1) | Install AutoPilot module + `Get-WindowsAutoPilotInfo` script. Also **initialises the winget COM server** (`winget --info` + `winget source update`) — required so VMs can install packages. Skipping causes all winget installs to fail (`0x8A150002`). |
 | 6 | — | Compact OS, run Disk Cleanup, turn off BitLocker |
-| 7 | — | `sysprep /generalize /oobe /shutdown` |
-| 8 | [Remove-TempFiles.ps1](Create%20Templade%20VHDX/Remove-TempFiles.ps1) | Clean temp files from the mounted (offline) VHDX |
+| 6 | [Remove-TempFiles.ps1](Create%20Templade%20VHDX/Remove-TempFiles.ps1) | Clean temp files from the mounted (offline) VHDX |
+| 7 | [Invoke-SysprepPrep.ps1](Create%20Templade%20VHDX/Invoke-SysprepPrep.ps1) | **Last step before shutdown.** Removes `Microsoft.Winget.Source` per-user packages (blocks sysprep if present), disables network adapters, then runs `sysprep /generalize /oobe /shutdown`. |
 
 After sysprep and cleanup, upload the resulting VHDX to the location referenced by `$DownloadUrl` in `Settings.psm1`.
 
