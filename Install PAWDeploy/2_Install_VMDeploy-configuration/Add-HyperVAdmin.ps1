@@ -138,7 +138,7 @@ if (Get-LocalUser -Name $HyperVUsername -ErrorAction SilentlyContinue) {
         $form.Controls.Add($btnCancel)
 
         $result = $form.ShowDialog()
-        return if ($result -eq [System.Windows.Forms.DialogResult]::OK) { $txtPwd.Text } else { $null }
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) { $txtPwd.Text } else { $null }
     }
 
     $password = Show-PasswordDialog
