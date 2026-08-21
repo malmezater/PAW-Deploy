@@ -20,4 +20,3 @@ Everything needed to prepare, configure, and install PAW-Deploy.
 | Doc | Purpose |
 | --- | --- |
 | [security/PAW-CONCEPT.md](security/PAW-CONCEPT.md) | The Privileged Access Workstation security model this project implements, and why it matters. |
-| [security/SECURITY-REVIEW.md](security/SECURITY-REVIEW.md) | Findings from a source-code security review of the installer and VMDeploy tooling. |
