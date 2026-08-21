@@ -44,7 +44,6 @@ Once installed, the administrator launches **VM Deploy** from the Start menu to 
 | --- | --- |
 | [docs/setup/](docs/setup/) | **Setup guide** — requirements, preparation, configuration reference, and installation (manual, Intune, SCCM). |
 | [docs/security/PAW-CONCEPT.md](docs/security/PAW-CONCEPT.md) | The PAW security model this project implements, and why it matters. |
-| [docs/security/SECURITY-REVIEW.md](docs/security/SECURITY-REVIEW.md) | Source-code security review of the installer and VMDeploy tooling. |
 
 Start with [docs/setup/README.md](docs/setup/README.md) for a step-by-step walkthrough.
 
