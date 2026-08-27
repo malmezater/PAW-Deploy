@@ -5,8 +5,11 @@
     <App Id="Microsoft.VisualStudioCode"   DisplayName="Visual Studio Code"   Default="False"  />
     <App Id="Microsoft.WindowsTerminal"    DisplayName="Windows Terminal"     Default="False"  />
     <App Id="GitHub.GitHubDesktop"         DisplayName="GitHub Desktop"       Default="False"  />
+    <App Id="Git.Git"                      DisplayName="Git Console"          Default="False"  />
     <App Id="7zip.7zip"                    DisplayName="7-Zip"                Default="False"  />
     <App Id="Notepad++.Notepad++"          DisplayName="Notepad++"            Default="False"  />
     <App Id="Microsoft.Sysinternals.Suite" DisplayName="Sysinternals Suite"   Default="False"  />
+    <App Id="OpenJS.NodeJS"                DisplayName="Node JS"              Default="False"  />
+    <App Id="Microsoft.DotNet.SDK.10"      DisplayName=".NET SDK 10.0"        Default="False"  />
   </Profile>
 </AppProfiles>
