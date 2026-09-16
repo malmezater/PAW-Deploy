@@ -1,0 +1,34 @@
+<!--
+  Security Audit package - everything Simple-Azure-Audit (Invoke-AzureAudit.ps1) needs.
+  Referenced from Apps.xml / Modules.xml with <Package Name="SecurityAudit" />.
+  Shown once in the Packages box of VM Deploy; <App>, <Module> and <Download> entries are installed when it is checked.
+
+  <Download> entries are downloaded on the host and copied into the VM. A .zip is extracted
+  to Destination (a single top-level folder in the archive, like GitHub archives, is flattened).
+
+  Not covered by winget/PSGallery - run Install-AuditPrerequisites.ps1 -SkipModules inside the VM:
+    Prowler (pip), the AzGovViz script and the Maester test files.
+-->
+<Package Name="SecurityAudit" DisplayName="Security Audit">
+  <!-- winget -->
+  <App Id="Microsoft.PowerShell"                 DisplayName="PowerShell 7"                             Description="PowerShell 7, the cross-platform shell. Runs side by side with Windows PowerShell 5.1." />
+  <App Id="Microsoft.AzureCLI"                   DisplayName="Microsoft Azure CLI"                      Description="Command-line tool (az) for managing Azure resources." />
+  <App Id="Python.Python.3.12"                   DisplayName="Python 3.12 (Prowler)"                    Description="Python 3.12 runtime. Needed to install Prowler." />
+
+  <!-- PowerShell modules (installed in this order) -->
+  <Module Name="Az"                              DisplayName="Azure Az"                                 Description="Azure PowerShell - cmdlets for managing Azure resources." />
+  <Module Name="Microsoft.Graph.Authentication"  DisplayName="Microsoft Graph Authentication"           Description="Sign-in and request cmdlets for Microsoft Graph (used by Maester)." />
+  <Module Name="Pester"                          DisplayName="Pester (Maester)"                         SkipPublisherCheck="True"  Description="PowerShell test framework. Maester runs its tests with it." />
+  <Module Name="Maester"                         DisplayName="Maester"                                  Description="Test framework for Entra ID, Conditional Access and Microsoft 365 security." />
+  <Module Name="PSRule"                          DisplayName="PSRule"                                   Description="Rules engine used by PSRule for Azure." />
+  <Module Name="PSRule.Rules.Azure"              DisplayName="PSRule for Azure"                         Description="Well-Architected Framework rules for Azure resources." />
+  <Module Name="WARA"                            DisplayName="Well-Architected Reliability Assessment"  Description="Well-Architected Reliability Assessment collector from Microsoft." />
+  <Module Name="ImportExcel"                     DisplayName="ImportExcel (ARI)"                        Description="Create Excel files without Excel installed (used by ARI)." />
+  <Module Name="AzureResourceInventory"          DisplayName="Azure Resource Inventory"                 Description="Azure Resource Inventory - Excel inventory and network diagram." />
+  <Module Name="AzAPICall"                       DisplayName="AzAPICall (AzGovViz)"                     Description="Azure API helper module used by Azure Governance Visualizer." />
+
+  <!-- Files downloaded into the VM -->
+  <Download Name="Simple Azure Audit"
+            Url="https://github.com/malmezater/Simple-Azure-Audit/archive/refs/heads/main.zip"
+            Destination="C:\PackTools\Simple-Azure-Audit" />
+</Package>

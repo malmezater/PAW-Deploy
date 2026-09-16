@@ -1,9 +1,14 @@
 ﻿<#
- # This script will give you the option to change the SKU.
- # The script detects the Server OS version and present a list of other SKU's that the current version can be converted into
- # Version 2.0
- # Added Selfelevating : Script "borrowed" from Ben Armstrong - https://blogs.msdn.microsoft.com/virtual_pc_guy/2010/09/23/a-self-elevating-powershell-script/
- # Added support for Windows Server 2016
+ # VMDeploywUI.ps1 - Privileged Access Workstation deployment tool (GUI)
+ #
+ # Pick a template, adjust the VM settings and choose what to install:
+ #   Packages            bundles of apps, modules and downloads   (Packages\<Name>.xml)
+ #   Applications        winget packages                          (Apps.xml, template <AppProfile>)
+ #   PowerShell modules  PowerShell Gallery modules               (Modules.xml, template <ModuleProfile>)
+ #
+ # Packages are referenced with <Package Name="..." Default="True|False" /> in the app and/or module
+ # profile of the template. They are listed once in the Packages box, whichever profile references them.
+ # Build hands the selection to VMDeploy.ps1.
 #>
 
 $DLL = '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);'
@@ -41,363 +46,439 @@ else{
     $ModulesXMLData = $null
 }
 
+#region Selection helpers {
+
+$PackagesFolder = "$RootFolder\Packages"
+$PackageCache = @{}
+
+Function New-CheckListItem
+{
+    # An app or module entry for a CheckedListBox.
+    param(
+        [string]$Key,
+        [string]$DisplayName,
+        [ValidateSet('App','Module')][string]$Kind,
+        [string]$Description,
+        [bool]$SkipPublisherCheck = $false
+    )
+    if(-not $DisplayName){ $DisplayName = $Key }
+    $Item = New-Object PSObject -Property @{
+        Id                 = $Key
+        Name               = $Key
+        Kind               = $Kind
+        DisplayName        = $DisplayName
+        Description        = $Description
+        SkipPublisherCheck = $SkipPublisherCheck
+    }
+    # Override ToString so the CheckedListBox shows the friendly name
+    $Item | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
+    return $Item
+}
+
+Function New-ItemFromNode
+{
+    # <App Id DisplayName Description /> or <Module Name DisplayName Description SkipPublisherCheck />
+    param($Node, [ValidateSet('App','Module')][string]$Kind)
+    $KeyAttribute = if($Kind -eq 'App'){ 'Id' } else { 'Name' }
+    New-CheckListItem -Key $Node.GetAttribute($KeyAttribute) -Kind $Kind `
+        -DisplayName $Node.GetAttribute('DisplayName') `
+        -Description $Node.GetAttribute('Description') `
+        -SkipPublisherCheck ($Node.GetAttribute('SkipPublisherCheck') -eq 'True')
+}
+
+Function Get-VMDeployPackage
+{
+    # Reads Packages\<Name>.xml into an item with its apps, modules and downloads. $null if missing.
+    param([string]$Name)
+    if($PackageCache.ContainsKey($Name)){ return $PackageCache[$Name] }
+
+    $Result = $null
+    $PackageFile = Join-Path $PackagesFolder "$Name.xml"
+    if(Test-Path -Path $PackageFile){
+        [XML]$PackageXML = Get-Content -Path $PackageFile
+        $Node = $PackageXML.Package
+        $Apps = @(); $Modules = @(); $Downloads = @()
+        foreach($Member in $Node.ChildNodes){
+            if($Member.NodeType -ne [System.Xml.XmlNodeType]::Element){ continue }
+            switch($Member.LocalName){
+                'App'      { $Apps    += New-ItemFromNode -Node $Member -Kind App }
+                'Module'   { $Modules += New-ItemFromNode -Node $Member -Kind Module }
+                'Download' { $Downloads += @{
+                                 Name        = $Member.GetAttribute('Name')
+                                 Url         = $Member.GetAttribute('Url')
+                                 Destination = $Member.GetAttribute('Destination')
+                             } }
+            }
+        }
+
+        $DisplayName = $Node.GetAttribute('DisplayName')
+        if(-not $DisplayName){ $DisplayName = $Name }
+        $Counts = @()
+        if($Apps.Count)     { $Counts += "{0} app{1}"      -f $Apps.Count,      $(if($Apps.Count -ne 1){ 's' }) }
+        if($Modules.Count)  { $Counts += "{0} module{1}"   -f $Modules.Count,   $(if($Modules.Count -ne 1){ 's' }) }
+        if($Downloads.Count){ $Counts += "{0} download{1}" -f $Downloads.Count, $(if($Downloads.Count -ne 1){ 's' }) }
+
+        $Result = New-Object PSObject -Property @{
+            Name        = $Name
+            DisplayName = $DisplayName
+            Summary     = ($Counts -join ', ')
+            Description = $Node.GetAttribute('Description')
+            Apps        = $Apps
+            Modules     = $Modules
+            Downloads   = $Downloads
+        }
+        $Result | Add-Member -MemberType ScriptMethod -Name ToString -Value {
+            if($this.Summary){ "{0}  ({1})" -f $this.DisplayName, $this.Summary } else { $this.DisplayName }
+        } -Force
+    }
+    $PackageCache[$Name] = $Result
+    return $Result
+}
+
+Function Get-ProfileItems
+{
+    # Returns @{ Item; Default } for every <App> or <Module> in a profile (packages are handled separately).
+    param(
+        $ProfileNode,
+        [ValidateSet('App','Module')][string]$ItemType
+    )
+    if(-not $ProfileNode){ return }
+    foreach($Node in $ProfileNode.ChildNodes){
+        if($Node.NodeType -ne [System.Xml.XmlNodeType]::Element -or $Node.LocalName -ne $ItemType){ continue }
+        $Item = New-ItemFromNode -Node $Node -Kind $ItemType
+        [pscustomobject]@{ Item = $Item; Default = ($Node.GetAttribute('Default') -eq 'True') }
+    }
+}
+
+Function Get-ProfilePackages
+{
+    # Returns @{ Item; Default } for every <Package> referenced in the given profiles, once per package.
+    # A package is pre-checked when any profile references it with Default="True".
+    param([object[]]$ProfileNodes)
+    $Order = New-Object System.Collections.ArrayList
+    $Defaults = @{}
+    foreach($ProfileNode in @($ProfileNodes | Where-Object { $_ })){
+        foreach($Node in $ProfileNode.ChildNodes){
+            if($Node.NodeType -ne [System.Xml.XmlNodeType]::Element -or $Node.LocalName -ne 'Package'){ continue }
+            $Name = $Node.GetAttribute('Name')
+            if(-not $Name){ continue }
+            if(-not $Defaults.ContainsKey($Name)){ [void]$Order.Add($Name); $Defaults[$Name] = $false }
+            if($Node.GetAttribute('Default') -eq 'True'){ $Defaults[$Name] = $true }
+        }
+    }
+    foreach($Name in $Order){
+        $Package = Get-VMDeployPackage -Name $Name
+        if(-not $Package){
+            Write-Warning "Package '$Name' not found in $PackagesFolder"
+            continue
+        }
+        [pscustomobject]@{ Item = $Package; Default = $Defaults[$Name] }
+    }
+}
+
+Function Select-UniqueItems
+{
+    # Removes duplicates by Name, first occurrence wins.
+    param([object[]]$Items)
+    $Seen = @{}
+    foreach($Item in $Items){
+        if(-not $Item -or -not $Item.Name -or $Seen.ContainsKey($Item.Name)){ continue }
+        $Seen[$Item.Name] = $true
+        $Item
+    }
+}
+
+Function Select-UniqueDownloads
+{
+    # One download per destination folder.
+    param([object[]]$Downloads)
+    $Seen = @{}
+    foreach($Download in $Downloads){
+        if(-not $Download -or -not $Download.Url -or -not $Download.Destination){ continue }
+        $Key = $Download.Destination.TrimEnd('\').ToLowerInvariant()
+        if($Seen.ContainsKey($Key)){ continue }
+        $Seen[$Key] = $true
+        $Download
+    }
+}
+
+#endregion Selection helpers }
+
 #Generate Randomname
 $chars = [char[]]"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 $RandomName = [string](($chars[0..25]|Get-Random)+(($chars|Get-Random -Count 3) -join ""))
 
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-$Font = 'Consolas,10'
+#region begin GUI{
 
-#region begin GUI{ 
+$Font      = New-Object System.Drawing.Font('Segoe UI', 9)
+$FontBold  = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
+$FontTitle = New-Object System.Drawing.Font('Segoe UI Semibold', 14)
+$MutedColor = [System.Drawing.Color]::FromArgb(96, 96, 96)
 
-$Form                            = New-Object system.Windows.Forms.Form
-$Form.ClientSize                 = '800,600'
-$Form.text                       = "Priviliged Access Workstation deployment tool 1.0"
-$Form.TopMost                    = $false
+Function New-Control
+{
+    param([string]$Type, [int]$X, [int]$Y, [int]$Width, [int]$Height, [string]$Text = '', $Parent)
+    $Control = New-Object "System.Windows.Forms.$Type"
+    $Control.Location = New-Object System.Drawing.Point($X, $Y)
+    $Control.Size     = New-Object System.Drawing.Size($Width, $Height)
+    $Control.Font     = $Font
+    if($Text){ $Control.Text = $Text }
+    if($Parent){ [void]$Parent.Controls.Add($Control) }
+    return $Control
+}
 
-$PictureBox1                     = New-Object system.Windows.Forms.PictureBox
-$PictureBox1.width               = 150
-$PictureBox1.height              = 150
-$PictureBox1.location            = New-Object System.Drawing.Point(630,0)
-$PictureBox1.imageLocation       = "$RootFolder\\images\\PAWDeploy.png"
-$PictureBox1.SizeMode            = [System.Windows.Forms.PictureBoxSizeMode]::zoom
+Function New-Field
+{
+    # Label + text box on one row inside a group box. Returns the text box.
+    param($Parent, [string]$Label, [int]$Y, [string]$Value = '', [switch]$Password)
+    [void](New-Control -Type Label -X 12 -Y ($Y + 3) -Width 110 -Height 20 -Text $Label -Parent $Parent)
+    $TextBox = New-Control -Type TextBox -X 124 -Y $Y -Width 236 -Height 23 -Parent $Parent
+    $TextBox.Text = $Value
+    if($Password){ $TextBox.UseSystemPasswordChar = $true }
+    return $TextBox
+}
 
-$OkButton                        = New-Object system.Windows.Forms.Button
-$OkButton.text                   = "Build"
-$OkButton.width                  = 60
-$OkButton.height                 = 30
-$OkButton.location               = New-Object System.Drawing.Point(630,550)
-$OkButton.Font                   = $Font
+$Form                 = New-Object System.Windows.Forms.Form
+$Form.ClientSize      = New-Object System.Drawing.Size(1000, 660)
+$Form.Text            = "Privileged Access Workstation deployment tool"
+$Form.Font            = $Font
+$Form.StartPosition   = 'CenterScreen'
+$Form.FormBorderStyle = 'FixedDialog'
+$Form.MaximizeBox     = $false
+$Form.TopMost         = $false
 
-$CancelButton                    = New-Object system.Windows.Forms.Button
-$CancelButton.text               = "Close"
-$CancelButton.width              = 60
-$CancelButton.height             = 30
-$CancelButton.location           = New-Object System.Drawing.Point(720,550)
-$CancelButton.Font               = $Font
+# ── Header ──────────────────────────────────────────────────
+$PictureBox1               = New-Control -Type PictureBox -X 16 -Y 10 -Width 64 -Height 64 -Parent $Form
+$PictureBox1.ImageLocation = "$RootFolder\Images\PAWDeploy.png"
+$PictureBox1.SizeMode      = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
 
-$SorceServerLabel                = New-Object system.Windows.Forms.Label
-$SorceServerLabel.text           = "Source"
-$SorceServerLabel.AutoSize       = $true
-$SorceServerLabel.width          = 25
-$SorceServerLabel.height         = 10
-$SorceServerLabel.location       = New-Object System.Drawing.Point(20,10)
-$SorceServerLabel.Font           = $Font
+$TitleLabel      = New-Control -Type Label -X 92 -Y 14 -Width 880 -Height 30 -Text "Privileged Access Workstation deployment" -Parent $Form
+$TitleLabel.Font = $FontTitle
+$SubtitleLabel   = New-Control -Type Label -X 94 -Y 46 -Width 880 -Height 20 -Parent $Form `
+                     -Text "Select a template, adjust the virtual machine settings and choose what to install."
+$SubtitleLabel.ForeColor = $MutedColor
 
-$TemplateLabel                   = New-Object system.Windows.Forms.Label
-$TemplateLabel.text              = "Template"
-$TemplateLabel.AutoSize          = $true
-$TemplateLabel.width             = 25
-$TemplateLabel.height            = 10
-$TemplateLabel.location          = New-Object System.Drawing.Point(20,30)
-$TemplateLabel.Font              = $Font
+# ── Left: virtual machine ───────────────────────────────────
+$VMGroup = New-Control -Type GroupBox -X 16 -Y 84 -Width 372 -Height 520 -Text "Virtual machine" -Parent $Form
 
-$TemplateListbox                 = New-Object system.Windows.Forms.ListBox
-$TemplateListbox.text            = "TemplateSelection"
-$TemplateListbox.width           = 350
-$TemplateListbox.height          = 70
-$TemplateListbox.location        = New-Object System.Drawing.Point(100,30)
+[void](New-Control -Type Label -X 12 -Y 24 -Width 340 -Height 20 -Text "Template" -Parent $VMGroup)
+$TemplateListbox = New-Control -Type ListBox -X 12 -Y 44 -Width 348 -Height 84 -Parent $VMGroup
+$TemplateListbox.IntegralHeight = $false
 
-$VMnameLabel                     = New-Object system.Windows.Forms.Label
-$VMnameLabel.text                = "VMname"
-$VMnameLabel.AutoSize            = $true
-$VMnameLabel.width               = 25
-$VMnameLabel.height              = 10
-$VMnameLabel.location            = New-Object System.Drawing.Point(20,250)
-$VMnameLabel.Font                = $Font
+$VMnameTextBox      = New-Field -Parent $VMGroup -Label "VM name"        -Y 140
+$LPasswordTextBox   = New-Field -Parent $VMGroup -Label "Local password" -Y 170 -Password
+$DJANameTextBox     = New-Field -Parent $VMGroup -Label "Domain account" -Y 200
+$DJAPasswordTextBox = New-Field -Parent $VMGroup -Label "Domain password" -Y 230 -Password
 
-$VMnameTextBox                   = New-Object system.Windows.Forms.TextBox
-$VMnameTextBox.multiline         = $false
-$VMnameTextBox.width             = 150
-$VMnameTextBox.height            = 20
-$VMnameTextBox.location          = New-Object System.Drawing.Point(100,250)
-$VMnameTextBox.Font              = $Font
-$VMnameTextBox.Text              = $null
+$NetworkLabel      = New-Control -Type Label -X 12 -Y 272 -Width 340 -Height 20 -Text "Network  (DHCP or static values)" -Parent $VMGroup
+$NetworkLabel.Font = $FontBold
 
-$DJANameLabel                    = New-Object system.Windows.Forms.Label
-$DJANameLabel.text               = "D Account"
-$DJANameLabel.AutoSize           = $true
-$DJANameLabel.width              = 25
-$DJANameLabel.height             = 10
-$DJANameLabel.location           = New-Object System.Drawing.Point(20,280)
-$DJANameLabel.Font               = $Font
+$IPAddressTextBox = New-Field -Parent $VMGroup -Label "IP address" -Y 296 -Value 'DHCP'
+$SubnetTextBox    = New-Field -Parent $VMGroup -Label "Subnet prefix" -Y 326 -Value 'DHCP'
+$GatewayTextBox   = New-Field -Parent $VMGroup -Label "Gateway"    -Y 356 -Value 'DHCP'
+$DNS1TextBox      = New-Field -Parent $VMGroup -Label "DNS 1"      -Y 386 -Value 'DHCP'
+$DNS2TextBox      = New-Field -Parent $VMGroup -Label "DNS 2"      -Y 416 -Value 'DHCP'
+$VlanTextBox      = New-Field -Parent $VMGroup -Label "VLAN ID"    -Y 446
 
-$DJANameTextBox                  = New-Object system.Windows.Forms.TextBox
-$DJANameTextBox.multiline        = $false
-$DJANameTextBox.width            = 150
-$DJANameTextBox.height           = 20
-$DJANameTextBox.location         = New-Object System.Drawing.Point(100,280)
-$DJANameTextBox.Font             = $Font
-$DJANameTextBox.Text             = $null
+$TemplateInfoLabel           = New-Control -Type Label -X 12 -Y 482 -Width 348 -Height 30 -Parent $VMGroup
+$TemplateInfoLabel.ForeColor = $MutedColor
 
-$DJAPasswordLabel                = New-Object system.Windows.Forms.Label
-$DJAPasswordLabel.text           = "D Password"
-$DJAPasswordLabel.AutoSize       = $true
-$DJAPasswordLabel.width          = 25
-$DJAPasswordLabel.height         = 10
-$DJAPasswordLabel.location       = New-Object System.Drawing.Point(20,310)
-$DJAPasswordLabel.Font           = $Font
+# ── Right: packages ─────────────────────────────────────────
+$PackagesGroup = New-Control -Type GroupBox -X 404 -Y 84 -Width 284 -Height 172 -Text "Packages" -Parent $Form
 
-$DJAPasswordTextBox              = New-Object system.Windows.Forms.TextBox
-$DJAPasswordTextBox.multiline    = $false
-$DJAPasswordTextBox.width        = 150
-$DJAPasswordTextBox.height       = 20
-$DJAPasswordTextBox.location     = New-Object System.Drawing.Point(100,310)
-$DJAPasswordTextBox.Font         = $Font
-$DJAPasswordTextBox.PasswordChar = "*"
-$DJAPasswordTextBox.Text         = $null
+$PackagesCheckedListBox                = New-Control -Type CheckedListBox -X 12 -Y 24 -Width 260 -Height 136 -Parent $PackagesGroup
+$PackagesCheckedListBox.CheckOnClick   = $true
+$PackagesCheckedListBox.IntegralHeight = $false
 
-$LPasswordLabel                  = New-Object system.Windows.Forms.Label
-$LPasswordLabel.text             = "L Password"
-$LPasswordLabel.AutoSize         = $true
-$LPasswordLabel.width            = 25
-$LPasswordLabel.height           = 10
-$LPasswordLabel.location         = New-Object System.Drawing.Point(20,340)
-$LPasswordLabel.Font             = $Font
+# ── Right: details for the selected package, application or module ──
+$DetailsGroup = New-Control -Type GroupBox -X 700 -Y 84 -Width 284 -Height 172 -Text "Details" -Parent $Form
 
-$LPasswordTextBox                = New-Object system.Windows.Forms.TextBox
-$LPasswordTextBox.multiline      = $false
-$LPasswordTextBox.width          = 150
-$LPasswordTextBox.height         = 20
-$LPasswordTextBox.location       = New-Object System.Drawing.Point(100,340)
-$LPasswordTextBox.Font           = $Font
-$LPasswordTextBox.PasswordChar = "*"
-$LPasswordTextBox.Text           = $null
+$DetailsTextBox             = New-Control -Type TextBox -X 12 -Y 24 -Width 260 -Height 136 -Parent $DetailsGroup
+$DetailsTextBox.Multiline   = $true
+$DetailsTextBox.ReadOnly    = $true
+$DetailsTextBox.ScrollBars  = 'Vertical'
+$DetailsTextBox.BorderStyle = 'None'
+$DetailsTextBox.BackColor   = $Form.BackColor
 
-$IPAddressLabel                  = New-Object system.Windows.Forms.Label
-$IPAddressLabel.text             = "IPAddress"
-$IPAddressLabel.AutoSize         = $true
-$IPAddressLabel.width            = 25
-$IPAddressLabel.height           = 10
-$IPAddressLabel.location         = New-Object System.Drawing.Point(20,400)
-$IPAddressLabel.Font             = $Font
+# ── Right: applications ─────────────────────────────────────
+$AppsGroup = New-Control -Type GroupBox -X 404 -Y 264 -Width 284 -Height 340 -Text "Applications (winget)" -Parent $Form
+$AppsCheckedListBox                = New-Control -Type CheckedListBox -X 12 -Y 24 -Width 260 -Height 304 -Parent $AppsGroup
+$AppsCheckedListBox.CheckOnClick   = $true
+$AppsCheckedListBox.IntegralHeight = $false
 
-$IPAddressTextBox                = New-Object system.Windows.Forms.TextBox
-$IPAddressTextBox.multiline      = $false
-$IPAddressTextBox.width          = 150
-$IPAddressTextBox.height         = 20
-$IPAddressTextBox.location       = New-Object System.Drawing.Point(100,400)
-$IPAddressTextBox.Font           = $Font
-$IPAddressTextBox.Text           = 'DHCP'
+# ── Right: PowerShell modules ───────────────────────────────
+$ModulesGroup = New-Control -Type GroupBox -X 700 -Y 264 -Width 284 -Height 340 -Text "PowerShell modules (AllUsers, latest)" -Parent $Form
+$ModulesCheckedListBox                = New-Control -Type CheckedListBox -X 12 -Y 24 -Width 260 -Height 304 -Parent $ModulesGroup
+$ModulesCheckedListBox.CheckOnClick   = $true
+$ModulesCheckedListBox.IntegralHeight = $false
 
-$SubnetLabel                     = New-Object system.Windows.Forms.Label
-$SubnetLabel.text                = "Subnet"
-$SubnetLabel.AutoSize            = $true
-$SubnetLabel.width               = 25
-$SubnetLabel.height              = 10
-$SubnetLabel.location            = New-Object System.Drawing.Point(20,430)
-$SubnetLabel.Font                = $Font
+# ── Footer ──────────────────────────────────────────────────
+$result           = New-Control -Type Label -X 16 -Y 620 -Width 772 -Height 30 -Parent $Form
+$result.TextAlign = 'MiddleLeft'
+$result.ForeColor = $MutedColor
 
-$SubnetTextBox                   = New-Object system.Windows.Forms.TextBox
-$SubnetTextBox.multiline         = $false
-$SubnetTextBox.width             = 150
-$SubnetTextBox.height            = 20
-$SubnetTextBox.location          = New-Object System.Drawing.Point(100,430)
-$SubnetTextBox.Font              = $Font
-$SubnetTextBox.Text              = 'DHCP'
-
-$DNS1Label                       = New-Object system.Windows.Forms.Label
-$DNS1Label.text                  = "DNS1"
-$DNS1Label.AutoSize              = $true
-$DNS1Label.width                 = 25
-$DNS1Label.height                = 10
-$DNS1Label.location              = New-Object System.Drawing.Point(20,460)
-$DNS1Label.Font                  = $Font
-
-$DNS1TextBox                     = New-Object system.Windows.Forms.TextBox
-$DNS1TextBox.multiline           = $false
-$DNS1TextBox.width               = 150
-$DNS1TextBox.height              = 20
-$DNS1TextBox.location            = New-Object System.Drawing.Point(100,460)
-$DNS1TextBox.Font                = $Font
-$DNS1TextBox.Text                = 'DHCP'
-
-$DNS2Label                       = New-Object system.Windows.Forms.Label
-$DNS2Label.text                  = "DNS2"
-$DNS2Label.AutoSize              = $true
-$DNS2Label.width                 = 25
-$DNS2Label.height                = 10
-$DNS2Label.location              = New-Object System.Drawing.Point(20,490)
-$DNS2Label.Font                  = $Font
-
-$DNS2TextBox                     = New-Object system.Windows.Forms.TextBox
-$DNS2TextBox.multiline           = $false
-$DNS2TextBox.width               = 150
-$DNS2TextBox.height              = 20
-$DNS2TextBox.location            = New-Object System.Drawing.Point(100,490)
-$DNS2TextBox.Font                = $Font
-$DNS2TextBox.Text                = 'DHCP'
-
-$GatewayLabel                    = New-Object system.Windows.Forms.Label
-$GatewayLabel.text               = "Gateway"
-$GatewayLabel.AutoSize           = $true
-$GatewayLabel.width              = 25
-$GatewayLabel.height             = 10
-$GatewayLabel.location           = New-Object System.Drawing.Point(20,520)
-$GatewayLabel.Font               = $Font
-
-$GatewayTextBox                  = New-Object system.Windows.Forms.TextBox
-$GatewayTextBox.multiline        = $false
-$GatewayTextBox.width            = 150
-$GatewayTextBox.height           = 20
-$GatewayTextBox.location         = New-Object System.Drawing.Point(100,520)
-$GatewayTextBox.Font             = $Font
-$GatewayTextBox.Text             = 'DHCP'
-
-$VlanLabel                       = New-Object system.Windows.Forms.Label
-$VlanLabel.text                  = "VLANID"
-$VlanLabel.AutoSize              = $true
-$VlanLabel.width                 = 25
-$VlanLabel.height                = 10
-$VlanLabel.location              = New-Object System.Drawing.Point(20,550)
-$VlanLabel.Font                  = $Font
-
-$VlanTextBox                     = New-Object system.Windows.Forms.TextBox
-$VlanTextBox.multiline           = $false
-$VlanTextBox.width               = 150
-$VlanTextBox.height              = 20
-$VlanTextBox.location            = New-Object System.Drawing.Point(100,550)
-$VlanTextBox.Font                = $Font
-$VlanTextBox.Text                = $null
-
-$result                          = New-Object system.Windows.Forms.TextBox
-$result.multiline                = $true
-$result.width                    = 480
-$result.height                   = 45
-$result.location                 = New-Object System.Drawing.Point(300,500)
-$result.Font                     = $Font
-
-$AppsLabel                       = New-Object system.Windows.Forms.Label
-$AppsLabel.text                  = "Applications"
-$AppsLabel.AutoSize              = $true
-$AppsLabel.location              = New-Object System.Drawing.Point(300,230)
-$AppsLabel.Font                  = $Font
-
-$AppsCheckedListBox              = New-Object system.Windows.Forms.CheckedListBox
-$AppsCheckedListBox.width        = 480
-$AppsCheckedListBox.height       = 110
-$AppsCheckedListBox.location     = New-Object System.Drawing.Point(300,250)
-$AppsCheckedListBox.Font         = $Font
-$AppsCheckedListBox.CheckOnClick = $true
-
-$ModulesLabel                    = New-Object system.Windows.Forms.Label
-$ModulesLabel.text               = "PowerShell Modules (AllUsers, latest)"
-$ModulesLabel.AutoSize           = $true
-$ModulesLabel.location           = New-Object System.Drawing.Point(300,365)
-$ModulesLabel.Font               = $Font
-
-$ModulesCheckedListBox              = New-Object system.Windows.Forms.CheckedListBox
-$ModulesCheckedListBox.width        = 480
-$ModulesCheckedListBox.height       = 110
-$ModulesCheckedListBox.location     = New-Object System.Drawing.Point(300,385)
-$ModulesCheckedListBox.Font         = $Font
-$ModulesCheckedListBox.CheckOnClick = $true
+$OkButton     = New-Control -Type Button -X 800 -Y 618 -Width 88 -Height 32 -Text "Build" -Parent $Form
+$CancelButton = New-Control -Type Button -X 896 -Y 618 -Width 88 -Height 32 -Text "Close" -Parent $Form
+$Form.AcceptButton = $OkButton
+$Form.CancelButton = $CancelButton
 
 foreach($item in $TemplatesSelection){
     [void] $TemplateListbox.Items.Add($item)
 }
 
-$Form.controls.AddRange(@($OkButton,$CancelButton,$SorceServerLabel,$TemplateLabel,$IPAddressLabel,$SubnetLabel,$DNS1Label,$DNS2Label,$GatewayLabel,$VlanLabel,$TemplateListbox,$IPAddressTextBox,$SubnetTextBox,$DNS1TextBox,$DNS2TextBox,$GatewayTextBox,$VlanTextBox,$result,$PictureBox1,$VMnameLabel,$VMnameTextBox,$DJANameLabel,$DJANameTextBox,$DJAPasswordLabel,$DJAPasswordTextBox,$LPasswordLabel,$LPasswordTextBox,$AppsLabel,$AppsCheckedListBox,$ModulesLabel,$ModulesCheckedListBox))
-
 #region gui events {
 $OkButton.Add_Click({ OkButtonSelected })
 $CancelButton.Add_Click({ CancelButtonSelected })
-$TemplateListbox.Add_SelectedValueChanged({TemplateListboxChanged})
+$TemplateListbox.Add_SelectedValueChanged({ TemplateListboxChanged })
+$PackagesCheckedListBox.Add_SelectedIndexChanged({ Show-Details -Item $PackagesCheckedListBox.SelectedItem })
+$AppsCheckedListBox.Add_SelectedIndexChanged({ Show-Details -Item $AppsCheckedListBox.SelectedItem })
+$ModulesCheckedListBox.Add_SelectedIndexChanged({ Show-Details -Item $ModulesCheckedListBox.SelectedItem })
+# ItemCheck fires before the check state changes - update the summary once it has been applied
+$PackagesCheckedListBox.Add_ItemCheck({ $Form.BeginInvoke([Action]{ Update-SelectionSummary }) | Out-Null })
+$AppsCheckedListBox.Add_ItemCheck({ $Form.BeginInvoke([Action]{ Update-SelectionSummary }) | Out-Null })
+$ModulesCheckedListBox.Add_ItemCheck({ $Form.BeginInvoke([Action]{ Update-SelectionSummary }) | Out-Null })
 #endregion events }
 
 #endregion GUI }
+
+Function Show-Details
+{
+    # Short description of the selected package, application or module.
+    param($Item)
+    if(-not $Item){
+        $DetailsTextBox.Text = "Select a package, application or module to see what it installs."
+        return
+    }
+    $Lines = New-Object System.Collections.ArrayList
+    if($Item.PSObject.Properties['Apps']){
+        # Package: just what gets installed
+        [void]$Lines.Add($Item.DisplayName)
+        if($Item.Apps.Count)     { [void]$Lines.Add("Apps: " + ((@($Item.Apps) | ForEach-Object { $_.DisplayName }) -join ', ')) }
+        if($Item.Modules.Count)  { [void]$Lines.Add("Modules: " + ((@($Item.Modules) | ForEach-Object { $_.Name }) -join ', ')) }
+        foreach($Download in @($Item.Downloads)){ [void]$Lines.Add("Download: $($Download.Name) -> $($Download.Destination)") }
+    }
+    elseif($Item.Kind -eq 'App'){
+        [void]$Lines.Add($Item.DisplayName)
+        if($Item.Description){ [void]$Lines.Add($Item.Description) }
+        [void]$Lines.Add('')
+        [void]$Lines.Add("Source: winget community repository")
+        [void]$Lines.Add("Id: $($Item.Id)")
+        [void]$Lines.Add("Installed machine-wide (falls back to user scope)")
+    }
+    else{
+        [void]$Lines.Add($Item.DisplayName)
+        if($Item.Description){ [void]$Lines.Add($Item.Description) }
+        [void]$Lines.Add('')
+        [void]$Lines.Add("Source: PowerShell Gallery")
+        [void]$Lines.Add("https://www.powershellgallery.com/packages/$($Item.Name)")
+        [void]$Lines.Add("Installed for all users, latest version" + $(if($Item.SkipPublisherCheck){ " (publisher check skipped)" }))
+    }
+    $DetailsTextBox.Text = ($Lines -join "`r`n")
+}
+
+Function Get-Selection
+{
+    # Everything that will be installed: checked packages expanded, duplicates removed.
+    $Packages = @($PackagesCheckedListBox.CheckedItems)
+    $Apps     = @(Select-UniqueItems -Items (@($AppsCheckedListBox.CheckedItems) + @($Packages | ForEach-Object { $_.Apps })))
+    $Modules  = @(Select-UniqueItems -Items (@($ModulesCheckedListBox.CheckedItems) + @($Packages | ForEach-Object { $_.Modules })))
+    $Downloads = @(Select-UniqueDownloads -Downloads @($Packages | ForEach-Object { $_.Downloads }))
+    [pscustomobject]@{ Packages = $Packages; Apps = $Apps; Modules = $Modules; Downloads = $Downloads }
+}
+
+Function Update-SelectionSummary
+{
+    $Selection = Get-Selection
+    $result.Text = "Will install: {0} package(s), {1} application(s), {2} module(s), {3} download(s)" -f `
+        $Selection.Packages.Count, $Selection.Apps.Count, $Selection.Modules.Count, $Selection.Downloads.Count
+}
+
 Function TemplateListboxChanged
 {
-    #Get Data
-    
-    #Get Templates
     $SelectedTemplate = $($TemplateListbox.SelectedItem)
     $TemplateData = $XMLData.Settings.Templates.Template | Where-Object Name -EQ $SelectedTemplate
 
-    #$result.text = "Selected Template is $SelectedTemplate"
-    #$result.text += "`r`n" + "MachineObjectOU is now $($TemplateData.MachineObjectOU)"
-    #$result.text += "`r`n" + "NameSuffix is now $($TemplateData.NameSuffix)"
-
     $VMnameTextBox.Text = $env:COMPUTERNAME + "-" + $TemplateData.NameSuffix + $RandomName
     $VlanTextBox.Text = $TemplateData.vlanid
+    $TemplateInfoLabel.Text = "{0} · {1} vCPU · {2} MB memory" -f $TemplateData.DomainOrWorkGroup, $TemplateData.NoCPU, $TemplateData.Memory
 
-    #Populate the application checklist based on the template's AppProfile
+    # Domain account and password are only used when the template joins a domain
+    $IsDomain = ($TemplateData.DomainOrWorkGroup -eq 'Domain')
+    $DJANameTextBox.Enabled = $IsDomain
+    $DJAPasswordTextBox.Enabled = $IsDomain
+    if(-not $IsDomain){ $DJANameTextBox.Text = ''; $DJAPasswordTextBox.Text = '' }
+
+    $AppProfile = $null
+    if($TemplateData.AppProfile -and $AppsXMLData){
+        $AppProfile = $AppsXMLData.AppProfiles.Profile | Where-Object Name -EQ $TemplateData.AppProfile
+    }
+    $ModProfile = $null
+    if($TemplateData.ModuleProfile -and $ModulesXMLData){
+        $ModProfile = $ModulesXMLData.ModuleProfiles.Profile | Where-Object Name -EQ $TemplateData.ModuleProfile
+    }
+
+    # Packages (from both profiles)
+    $PackagesCheckedListBox.Items.Clear()
+    foreach($Entry in (Get-ProfilePackages -ProfileNodes @($AppProfile, $ModProfile))){
+        [void]$PackagesCheckedListBox.Items.Add($Entry.Item, $Entry.Default)
+    }
+    $PackagesCheckedListBox.Enabled = ($PackagesCheckedListBox.Items.Count -gt 0)
+    $PackagesGroup.Text = if($PackagesCheckedListBox.Items.Count -gt 0){ "Packages" } else { "Packages (none for this template)" }
+    Show-Details -Item $null
+
+    # Applications
     $AppsCheckedListBox.Items.Clear()
-    $ProfileName = $TemplateData.AppProfile
-    if($ProfileName -and $AppsXMLData){
-        $Profile = $AppsXMLData.AppProfiles.Profile | Where-Object Name -EQ $ProfileName
-        if($Profile){
-            foreach($App in $Profile.App){
-                $IsDefault = ($App.Default -eq 'True')
-                $DisplayItem = New-Object PSObject -Property @{
-                    Id          = $App.Id
-                    DisplayName = $App.DisplayName
-                }
-                # Override ToString so the CheckedListBox shows the friendly name
-                $DisplayItem | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
-                [void]$AppsCheckedListBox.Items.Add($DisplayItem, $IsDefault)
-            }
-            $AppsLabel.Text = "Applications ($ProfileName)"
-            $AppsCheckedListBox.Enabled = $true
-        }
-        else{
-            $AppsLabel.Text = "Applications (profile '$ProfileName' not found)"
-            $AppsCheckedListBox.Enabled = $false
-        }
+    foreach($Entry in (Get-ProfileItems -ProfileNode $AppProfile -ItemType App)){
+        [void]$AppsCheckedListBox.Items.Add($Entry.Item, $Entry.Default)
     }
-    else{
-        $AppsLabel.Text = "Applications (none for this template)"
-        $AppsCheckedListBox.Enabled = $false
-    }
+    $AppsCheckedListBox.Enabled = [bool]$AppProfile
+    $AppsGroup.Text = if(-not $TemplateData.AppProfile){ "Applications (none for this template)" }
+                      elseif(-not $AppProfile){ "Applications (profile '$($TemplateData.AppProfile)' not found)" }
+                      else{ "Applications - $($TemplateData.AppProfile)" }
 
-    #Populate the PowerShell module checklist based on the template's ModuleProfile
+    # PowerShell modules
     $ModulesCheckedListBox.Items.Clear()
-    $ModProfileName = $TemplateData.ModuleProfile
-    if($ModProfileName -and $ModulesXMLData){
-        $ModProfile = $ModulesXMLData.ModuleProfiles.Profile | Where-Object Name -EQ $ModProfileName
-        if($ModProfile){
-            foreach($Mod in $ModProfile.Module){
-                $IsDefault = ($Mod.Default -eq 'True')
-                $DisplayItem = New-Object PSObject -Property @{
-                    Name        = $Mod.Name
-                    DisplayName = $Mod.DisplayName
-                }
-                $DisplayItem | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
-                [void]$ModulesCheckedListBox.Items.Add($DisplayItem, $IsDefault)
-            }
-            $ModulesLabel.Text = "PowerShell Modules - AllUsers, latest ($ModProfileName)"
-            $ModulesCheckedListBox.Enabled = $true
-        }
-        else{
-            $ModulesLabel.Text = "PowerShell Modules (profile '$ModProfileName' not found)"
-            $ModulesCheckedListBox.Enabled = $false
-        }
+    foreach($Entry in (Get-ProfileItems -ProfileNode $ModProfile -ItemType Module)){
+        [void]$ModulesCheckedListBox.Items.Add($Entry.Item, $Entry.Default)
     }
-    else{
-        $ModulesLabel.Text = "PowerShell Modules (none for this template)"
-        $ModulesCheckedListBox.Enabled = $false
-    }
+    $ModulesCheckedListBox.Enabled = [bool]$ModProfile
+    $ModulesGroup.Text = if(-not $TemplateData.ModuleProfile){ "PowerShell modules (none for this template)" }
+                         elseif(-not $ModProfile){ "PowerShell modules (profile '$($TemplateData.ModuleProfile)' not found)" }
+                         else{ "PowerShell modules - $($TemplateData.ModuleProfile)" }
+
+    Update-SelectionSummary
 }
+
 function CancelButtonSelected()
 {
     $Form.close()
 }
+
+Function Show-BuildError
+{
+    param([string]$Message, $Control)
+    $result.ForeColor = [System.Drawing.Color]::Firebrick
+    $result.Text = $Message
+    if($Control){ [void]$Control.Focus() }
+}
+
 Function OkButtonSelected
 {
-    $result.text = "Starting the build..."
-    #$result.text += "$($TemplateListbox.SelectedItem)"
-    #$result.text += "$($DevEnvListbox.SelectedItem)"
-    #$result.text += "$($IPAddressTextBox.Text)"
-    #$result.text += "$($GatewayTextBox.Text)"
-    #$result.text += "$($DNS1TextBox.Text)"
-    #$result.text += "$($DNS2TextBox.Text)"
-    #$result.text += "$($SubnetTextBox.Text)"
-    #$result.text += "$($DJANameTextBox.Text)"
-    #$result.text += "$($VlanTextBox.Text)"
-    
     $Template = $($TemplateListbox.SelectedItem)
+    if(-not $Template){ Show-BuildError -Message "Select a template first." -Control $TemplateListbox; return }
+    if(-not $VMnameTextBox.Text.Trim()){ Show-BuildError -Message "Enter a VM name." -Control $VMnameTextBox; return }
+    if(-not $LPasswordTextBox.Text){ Show-BuildError -Message "Enter the local administrator password for the VM." -Control $LPasswordTextBox; return }
+    if($DJANameTextBox.Enabled){
+        if(-not $DJANameTextBox.Text.Trim()){ Show-BuildError -Message "Enter the domain account used to join the domain." -Control $DJANameTextBox; return }
+        if(-not $DJAPasswordTextBox.Text){ Show-BuildError -Message "Enter the password for the domain account." -Control $DJAPasswordTextBox; return }
+    }
+    $result.ForeColor = $MutedColor
+    $result.Text = "Starting the build..."
+
     $VMname = $VMnameTextBox.Text
     $OSDAdapter0IPAddressList = $($IPAddressTextBox.Text)
     $OSDAdapter0Gateways = $($GatewayTextBox.Text)
@@ -409,29 +490,22 @@ Function OkButtonSelected
     $DomainAdminPassword = $($DJAPasswordTextBox.text)
     $vlanid = $($VlanTextBox.Text)
 
-    #Collect selected winget app ids (comma separated)
-    $SelectedAppIds = @()
-    foreach($checked in $AppsCheckedListBox.CheckedItems){
-        $SelectedAppIds += $checked.Id
-    }
-    $WingetApps = ($SelectedAppIds -join ',')
-
-    #Collect selected PowerShell module names (comma separated)
-    $SelectedModuleNames = @()
-    foreach($checked in $ModulesCheckedListBox.CheckedItems){
-        $SelectedModuleNames += $checked.Name
-    }
-    $PSModules = ($SelectedModuleNames -join ',')
+    # Selected apps, modules and downloads (packages expanded, duplicates removed)
+    $Selection = Get-Selection
+    $WingetApps = (@($Selection.Apps | ForEach-Object { $_.Id }) -join ',')
+    $PSModules = (@($Selection.Modules | ForEach-Object { $_.Name }) -join ',')
+    $PSModulesSkipPublisherCheck = (@($Selection.Modules | Where-Object { $_.SkipPublisherCheck } | ForEach-Object { $_.Name }) -join ',')
+    $Downloads = @($Selection.Downloads)
 
     $DataToExport = @{
         AdminPassword=$AdminPassword
         DomainAdminPassword=$DomainAdminPassword
         WingetApps=$WingetApps
         PSModules=$PSModules
+        PSModulesSkipPublisherCheck=$PSModulesSkipPublisherCheck
+        Downloads=$Downloads
     }
     $DataToExport | Export-Clixml -Path "$env:TEMP\vmdeploy.xml"
-
-
 
     if($DomainAdmin -eq ""){
         $ScriptArguments = "-Template `'$Template`' -RootFolder NA -VMName $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -vlanid $vlanid -DataFromFile"
@@ -442,8 +516,11 @@ Function OkButtonSelected
 
     $ScriptToRun = "$RootFolder\VMDeploy.ps1"
     $Argument = "$ScriptToRun $ScriptArguments"
-    
+
     Start-Process PowerShell -ArgumentList "$Argument" -Verbose
     $Form.close()
 }
+
+$DetailsTextBox.Text = "Select a template, then a package, application or module to see what it installs."
+$result.Text = "Select a template to start."
 [void]$Form.ShowDialog()

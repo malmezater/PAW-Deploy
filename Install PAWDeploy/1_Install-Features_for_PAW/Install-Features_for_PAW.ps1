@@ -1,84 +1,50 @@
-﻿
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Stage 1 - Enable all required Hyper-V Windows Optional Features.
 .NOTES
-    Exits 1641 when a reboot is required (standard Intune reboot code).
-    Exits 0 if no reboot is needed (should not normally happen for a first install).
-    Exits 1 if features could not be enabled after all retries.
+    Exit 0    - all features enabled, no reboot needed
+    Exit 1641 - features enabled but a reboot is required to finish (standard Intune reboot code)
+    Exit 1    - one or more features could not be enabled
 #>
 
-# -------  Bootstrap: load shared settings  -------
 Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
+Start-DeployStage -Name "HyperV" -Title "Stage 1 - Install Hyper-V Optional Features"
 
-$SourceFiles = "HyperV"
-$LogPath     = "$DeployITLogs\$SourceFiles-PS.log"
-Start-Transcript -Path $LogPath -Force -Append
+$rebootRequired = $false
+$failed = @()
 
-Initialize-DeployEnvironment
+foreach ($feature in $HyperVFeatures) {
+    try {
+        $state = (Get-WindowsOptionalFeature -FeatureName $feature -Online -ErrorAction Stop).State
 
-# -------  Enable features  -------
+        if ($state -eq "Disabled") {
+            Write-Host "Enabling $feature ..."
+            $result = Enable-WindowsOptionalFeature -FeatureName $feature -Online -All -LimitAccess -NoRestart -ErrorAction Stop
+            if ($result.RestartNeeded) { $rebootRequired = $true }
+            $state = (Get-WindowsOptionalFeature -FeatureName $feature -Online -ErrorAction Stop).State
+        }
 
-Write-Host "========================================================"
-Write-Host "           Install Hyper-V Optional Features"
-Write-Host "========================================================"
-
-foreach ($Feature in $HyperVFeatures) {
-    $state = (Get-WindowsOptionalFeature -FeatureName $Feature -Online).State
-    if ($state -eq "Enabled") {
-        Write-Host "$Feature is already enabled."
-    } else {
-        Write-Host "Enabling $Feature ..."
-        Enable-WindowsOptionalFeature -FeatureName $Feature -LimitAccess -NoRestart -Online | Out-Null
-    }
-}
-
-# -------  Verify (up to 3 attempts)  -------
-
-$MaxAttempts       = 3
-$RemainingAttempts = $MaxAttempts
-$AllEnabled        = $false
-
-Write-Host "Verifying feature state (up to $MaxAttempts attempts)..."
-
-do {
-    $AllEnabled = $true
-
-    foreach ($Feature in $HyperVFeatures) {
-        $state = (Get-WindowsOptionalFeature -FeatureName $Feature -Online).State
-
-        if ($state -eq "Enabled") {
-            Write-Host "$Feature - Enabled"
-            try {
-                New-ItemProperty -Path $ApplicationKeyPath -Name $Feature -Value "Enabled" -PropertyType String -Force | Out-Null
-            } catch {
-                Write-Warning "Could not write registry value for $Feature."
-            }
-        } else {
-            Write-Host "$Feature - NOT enabled"
-            $AllEnabled = $false
+        switch ($state) {
+            "Enabled"       { Write-Host "$feature - Enabled"; Set-DeployStamp -Name $feature -Value "Enabled" }
+            "EnablePending" { Write-Host "$feature - Enabled (reboot pending)"; $rebootRequired = $true }
+            default         { Write-Warning "$feature - state '$state'"; $failed += $feature }
         }
     }
-
-    if ($AllEnabled) { break }
-
-    $RemainingAttempts--
-    if ($RemainingAttempts -gt 0) {
-        Write-Host "Retrying in 10 seconds... ($RemainingAttempts attempts left)"
-        Start-Sleep -Seconds 10
+    catch {
+        Write-Warning "$feature - $($_.Exception.Message)"
+        $failed += $feature
     }
-
-} while ($RemainingAttempts -gt 0)
-
-# -------  Exit  -------
-
-Stop-Transcript
-
-if ($AllEnabled) {
-    Write-Host "All features enabled. Reboot required - exiting 1641."
-    exit 1641
-} else {
-    Write-Warning "Not all features could be enabled. Exiting 1."
-    exit 1
 }
+
+if ($failed.Count -gt 0) {
+    Write-Warning "Could not enable: $($failed -join ', ')"
+    exit (Stop-DeployStage $ExitFailure)
+}
+if ($rebootRequired) {
+    Write-Host "Reboot required to finish enabling Hyper-V - exiting $ExitRebootRequired."
+    exit (Stop-DeployStage $ExitRebootRequired)
+}
+
+Write-Host "All Hyper-V features are enabled."
+exit (Stop-DeployStage $ExitSuccess)

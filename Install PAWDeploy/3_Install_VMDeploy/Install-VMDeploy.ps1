@@ -1,103 +1,67 @@
-﻿
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Stage 3 - Copy VMDeploy source files and create Start Menu shortcuts.
+    Stage 3 - Copy the VMDeploy source files and create Start Menu shortcuts.
 .NOTES
-    Uses Robocopy to deploy the source tree, then writes a version stamp
-    to the registry. Idempotent: re-runs update if the version stamp differs.
+    Robocopy deploys Source\VMDeploy to C:\ProgramData\VMDeploy, then the version stamp
+    VMDeployVersion is written. The orchestrator re-runs this stage whenever the stamp
+    differs from $ScriptVersion, which updates an existing installation.
 #>
 
-# -------  Bootstrap: load shared settings  -------
 Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
+Start-DeployStage -Name "Install-VMDeploy" -Title "Stage 3 - Install VMDeploy $ScriptVersion"
 
-$SourceFiles = "VMDeployVersion"
-$Date        = Get-Date -Format yyMMdd
-$LogPath     = "$DeployITLogs\Install-VMDeploy-$Date.log"
-Start-Transcript -Path $LogPath -Force -Append
+# -------  Copy files  -------
 
-Initialize-DeployEnvironment
+Write-Host "Copying VMDeploy source files to $VMDeployPath ..."
+& Robocopy.exe "$PSScriptRoot\Source" "$env:ProgramData" /E /IT /IS /COPYALL /R:2 /W:5 /NP /NFL /NDL
+# Robocopy: 0-7 = success (files copied / skipped / extra), 8+ = at least one failure
+if ($LASTEXITCODE -ge 8) {
+    Write-Warning "Robocopy failed with exit code $LASTEXITCODE."
+    exit (Stop-DeployStage $ExitFailure)
+}
 
-Write-Host "========================================================"
-Write-Host "                  Install VM Deploy"
-Write-Host "========================================================"
+# -------  Start Menu shortcuts (local installs only)  -------
 
-# -------  Helper: create a shortcut (optionally Run-as-admin)  -------
 function New-Shortcut {
     param(
-        [string]$SourceFile,
-        [string]$DestinationFile,
-        [string]$Arguments,
-        [string]$IconPath = "NA",
-        [switch]$RunAsAdmin
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Script,
+        [Parameter(Mandatory)][string]$Icon,
+        [Parameter(Mandatory)][string]$Folder
     )
-    $shell     = New-Object -ComObject WScript.Shell
-    $shortcut  = $shell.CreateShortcut($DestinationFile)
-    $shortcut.TargetPath = $SourceFile
-    $shortcut.Arguments  = $Arguments
-    if ($IconPath -ne "NA") { $shortcut.IconLocation = $IconPath }
+    $shell    = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut((Join-Path $Folder "$Name.lnk"))
+    $shortcut.TargetPath   = "PowerShell.exe"
+    $shortcut.Arguments    = "-ExecutionPolicy Bypass -NoProfile -File `"$VMDeployPath\$Script`""
+    $shortcut.IconLocation = "$VMDeployPath\Icons\$Icon"
     $shortcut.Save()
 
-    if ($RunAsAdmin) {
-        $bytes = [System.IO.File]::ReadAllBytes($shortcut.FullName)
-        $bytes[0x15] = $bytes[0x15] -bor 0x20
-        [System.IO.File]::WriteAllBytes($shortcut.FullName, $bytes)
-    }
+    # Set the "Run as administrator" flag (byte 0x15, bit 0x20)
+    $bytes = [System.IO.File]::ReadAllBytes($shortcut.FullName)
+    $bytes[0x15] = $bytes[0x15] -bor 0x20
+    [System.IO.File]::WriteAllBytes($shortcut.FullName, $bytes)
 }
 
-# -------  Deploy files  -------
-function Install-VMDeployFiles {
-    Write-Host "Copying VMDeploy source files ..."
-    & Robocopy "$PSScriptRoot\Source" "$env:ProgramData\" /e /it /is /copyall
+if ($LocalInstall) {
+    Write-Host "LocalInstall = true - creating Start Menu shortcuts."
+    $menuDir = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy"
+    New-Item -Path $menuDir -ItemType Directory -Force | Out-Null
 
-    if ($LocalInstall) {
-        Write-Host "LocalInstall = true - creating Start Menu shortcuts."
-        $menuDir = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\VMDeploy"
-        New-Item -Path $menuDir -ItemType Directory -Force | Out-Null
-
-        $baseArgs = "-ExecutionPolicy Bypass -File C:\ProgramData\VMDeploy"
-        $iconBase  = "$env:ProgramData\VMDeploy\Icons"
-
-        New-Shortcut -SourceFile "PowerShell.exe" `
-            -DestinationFile "$menuDir\Deploy Windows.lnk" `
-            -Arguments "$baseArgs\VMDeploywUI.ps1" `
-            -IconPath "$iconBase\VMDeploy.ico" -RunAsAdmin
-
-        New-Shortcut -SourceFile "PowerShell.exe" `
-            -DestinationFile "$menuDir\VM Destroy.lnk" `
-            -Arguments "$baseArgs\VMRemovewUI.ps1" `
-            -IconPath "$iconBase\VMDestroy.ico" -RunAsAdmin
-
-        New-Shortcut -SourceFile "PowerShell.exe" `
-            -DestinationFile "$menuDir\Deploy UbuntuServer.lnk" `
-            -Arguments "$baseArgs\UbuntuServerDeploy.ps1" `
-            -IconPath "$iconBase\DeployUbuntuServer.ico" -RunAsAdmin
-    } else {
-        Write-Host "LocalInstall = false - skipping Start Menu shortcuts (Intune/ConfigMgr deployment)."
-    }
+    New-Shortcut -Folder $menuDir -Name "Deploy Windows"      -Script "VMDeploywUI.ps1"        -Icon "VMDeploy.ico"
+    New-Shortcut -Folder $menuDir -Name "VM Destroy"          -Script "VMRemovewUI.ps1"        -Icon "VMDestroy.ico"
+    New-Shortcut -Folder $menuDir -Name "Deploy UbuntuServer" -Script "UbuntuServerDeploy.ps1" -Icon "DeployUbuntuServer.ico"
+}
+else {
+    Write-Host "LocalInstall = false - skipping Start Menu shortcuts (Intune/ConfigMgr deployment)."
 }
 
-# -------  Install or update  -------
-$installedVersion = Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue
+# -------  Verify and stamp  -------
 
-if ($null -eq $installedVersion) {
-    Write-Host "VMDeploy not found - performing fresh install."
-    Install-VMDeployFiles
-    New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVersion -PropertyType String -Force | Out-Null
-} else {
-    Write-Host "Installed version ($installedVersion) differs from current ($ScriptVersion) - updating."
-    Install-VMDeployFiles
-    Set-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value $ScriptVersion -Force | Out-Null
+if (-not (Test-Path "$VMDeployPath\VMDeploywUI.ps1")) {
+    Write-Warning "VMDeploywUI.ps1 not found in $VMDeployPath after copy."
+    exit (Stop-DeployStage $ExitFailure)
 }
 
-# -------  Verify  -------
-$stamp = Get-ItemPropertyValue -Path $ApplicationKeyPath -Name $SourceFiles -ErrorAction SilentlyContinue
-if ($stamp -eq $ScriptVersion) {
-    Write-Host "Installation verified successfully."
-    Stop-Transcript
-    exit 0
-} else {
-    Write-Error "Version stamp not found or incorrect after install."
-    Stop-Transcript
-    exit 1
-}
+Set-DeployStamp -Name "VMDeployVersion" -Value $ScriptVersion
+exit (Stop-DeployStage $ExitSuccess)

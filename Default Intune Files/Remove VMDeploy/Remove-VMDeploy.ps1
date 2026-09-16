@@ -25,7 +25,7 @@ else{
 write-host " "
 write-host " Starting the script to remove VM's."
 
-Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\VMDeploy\VMRemovewUI.ps1
+Powershell.exe -ExecutionPolicy Bypass -NoProfile -File "$env:ProgramData\VMDeploy\VMRemovewUI.ps1"
 
 ##*===============================================
 ##* Remove Check file

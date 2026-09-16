@@ -11,7 +11,7 @@ The solution is designed to be deployed via **Microsoft Intune** (as a Win32 app
   <img src="https://badgen.net/badge/PowerShell/%E2%89%A5%205.1/blue" alt="PowerShell 5.1+" style="max-width: 100%;">
 </p>
 
-- Installer version: **2.2.3**
+- Installer version: **2.3.0**
 - Default VHDX tag: **Win11-25H2**
 
 ---
@@ -21,13 +21,20 @@ The solution is designed to be deployed via **Microsoft Intune** (as a Win32 app
 A PAW (Privileged Access Workstation) is a hardened endpoint used by administrators to perform sensitive tasks in isolation from a user's day-to-day workstation. This project turns a standard Windows 11 device into a PAW host by:
 
 1. Enabling Hyper-V and related Windows Optional Features.
-2. Creating a Hyper-V external switch bound to the active physical NIC.
+2. Creating a Hyper-V external switch bound to the configured (or first active) physical NIC.
 3. Configuring the firewall rules required by Hyper-V remoting.
-4. Adding the signed-in user to the **Hyper-V Administrators** group and creating a local `Hypervuser` service account.
+4. Adding the signed-in user to the **Hyper-V Administrators** group and, in interactive installs, creating a local `Hypervuser` service account.
 5. Deploying the **VMDeploy** application (PowerShell + UI shortcuts) to `C:\ProgramData\VMDeploy`.
 6. Downloading a pre-built Windows 11 VHDX template.
 
-Once installed, the administrator launches **VM Deploy** from the Start menu to spin up Windows (or Linux/Kali) guest VMs on demand.
+Once installed, the administrator launches **VM Deploy** from the Start menu to spin up Windows (or Linux/Kali) guest VMs on demand. VM Deploy installs the selected winget applications, PowerShell modules and **packages** into the new VM, for example:
+
+| Package | Installs |
+| --- | --- |
+| **Security Audit** | PowerShell 7, Azure CLI, Python, the Azure audit modules (Maester, PSRule, WARA, ARI and more), and [Simple Azure Audit](https://github.com/malmezater/Simple-Azure-Audit) in `C:\PackTools`. |
+| **Azure DevOps** | PowerShell 7, Windows Terminal, Azure CLI, Bicep, Terraform, Git, VS Code, GitHub Desktop, Az, Microsoft Graph, PSScriptAnalyzer and Pester. |
+
+Create your own from [docs/templates/Package-Template.xml](docs/templates/Package-Template.xml).
 
 ## Repository structure
 
@@ -43,7 +50,10 @@ Once installed, the administrator launches **VM Deploy** from the Start menu to 
 | | |
 | --- | --- |
 | [docs/setup/](docs/setup/) | **Setup guide** — requirements, preparation, configuration reference, and installation (manual, Intune, SCCM). |
+| [docs/templates/](docs/templates/) | Template for new VM Deploy packages. |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes per version. |
 | [docs/security/PAW-CONCEPT.md](docs/security/PAW-CONCEPT.md) | The PAW security model this project implements, and why it matters. |
+| [docs/security/SECURITY-REVIEW.md](docs/security/SECURITY-REVIEW.md) | Source-code security review of the installer and VMDeploy tooling. |
 
 Start with [docs/setup/README.md](docs/setup/README.md) for a step-by-step walkthrough.
 

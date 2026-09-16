@@ -1,0 +1,70 @@
+<!--
+  VM Deploy package template
+  ==========================
+
+  How to use
+    1. Copy this file to  Install PAWDeploy\3_Install_VMDeploy\Source\VMDeploy\Packages\<Name>.xml
+       The file name (without .xml) must match the Name attribute on <Package> below.
+    2. Fill in the apps, modules and downloads, and remove the examples you don't need.
+    3. Reference the package from the template's profile in Apps.xml and/or Modules.xml:
+         <Package Name="<Name>" Default="False" />
+       Default="True" pre-checks the package in VM Deploy.
+    4. Deploy the updated VMDeploy folder (Install-VMDeploy / new Intune package).
+
+  What happens when the package is checked in VM Deploy
+    - It is listed once in the Packages box with a summary, e.g. "My Package  (2 apps, 2 modules, 1 download)".
+    - Selecting it shows the apps, modules and downloads in the Details box.
+    - At build time its apps, modules and downloads are added to the selection. Anything that is also
+      checked individually, or included in another checked package, is installed once.
+
+  Order
+    Apps and modules are installed in the order they are listed. Put dependencies first
+    (e.g. Git before Visual Studio Code, Pester before Maester).
+-->
+<Package Name="MyPackage" DisplayName="My Package">
+
+  <!-- ─── Applications (winget) ───────────────────────────────────────────────
+       Id           Exact winget package ID. Look it up with:  winget search <name>
+                    Check the ID with:                          winget show <Id>
+       DisplayName  Name shown in VM Deploy.
+       Description  Optional. One line shown in the Details box.
+
+       Installed inside the VM with winget as an exact, silent, machine-wide install
+       (retried in user scope for packages that only support that).
+  -->
+  <App Id="Microsoft.PowerShell"        DisplayName="PowerShell 7"        Description="PowerShell 7, the cross-platform shell." />
+  <App Id="Microsoft.VisualStudioCode"  DisplayName="Visual Studio Code"  Description="Code editor with PowerShell and Git support." />
+
+  <!-- ─── PowerShell modules (PowerShell Gallery) ─────────────────────────────
+       Name                Exact module name as used by Install-Module.
+       DisplayName         Name shown in VM Deploy.
+       Description         Optional. One line shown in the Details box.
+       SkipPublisherCheck  Optional, "True" adds -SkipPublisherCheck. Only for modules that clash with an
+                           inbox signed module, e.g. Pester 5 next to Windows' built-in Pester 3.4.
+
+       Installed inside the VM with: Install-Module -Name <Name> -Scope AllUsers -Force -AllowClobber
+       (always the latest version).
+  -->
+  <Module Name="Az"      DisplayName="Azure Az"  Description="Azure PowerShell - cmdlets for managing Azure resources." />
+  <Module Name="Pester"  DisplayName="Pester"    SkipPublisherCheck="True"  Description="PowerShell test framework." />
+
+  <!-- ─── Downloads (optional) ────────────────────────────────────────────────
+       Name         Name shown in VM Deploy and in the deploy log.
+       Url          HTTP(S) URL. Downloaded on the host, so the VM does not need internet for this step.
+                    A new download is attempted on every build; the cached copy in
+                    %ProgramData%\VMDeploy\Downloads is used if the download fails.
+       Destination  Folder inside the VM.
+                    A .zip is extracted into the folder. A single top-level folder in the archive
+                    (as in GitHub archives: repo-main\) is flattened. Other files are copied as is.
+                    Files are unblocked after copying.
+
+       GitHub repository (latest main branch):
+         https://github.com/OWNER/REPO/archive/refs/heads/main.zip
+       GitHub release asset:
+         https://github.com/OWNER/REPO/releases/latest/download/FILE.zip
+  -->
+  <Download Name="My Tools"
+            Url="https://github.com/OWNER/REPO/archive/refs/heads/main.zip"
+            Destination="C:\PackTools\My-Tools" />
+
+</Package>

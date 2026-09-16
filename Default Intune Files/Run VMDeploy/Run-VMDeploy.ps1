@@ -26,7 +26,7 @@ Start-Transcript -Path $PowershellLogPath -Force -Append
     write-host " "
     write-host " Starting the script VMDeploy"
 
-    Powershell.exe -ExecutionPolicy Bypass -File $env:ProgramData\VMDeploy\PAWDeploywUI.ps1
+    Powershell.exe -ExecutionPolicy Bypass -NoProfile -File "$env:ProgramData\VMDeploy\VMDeploywUI.ps1"
 
 ##*===============================================
 ##* Remove Check file

@@ -1,46 +1,38 @@
-﻿
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Stage 2b - Disable the three PAW Hyper-V firewall rules.
+    Stage 2b - Disable the PAW Hyper-V firewall rules listed in Settings.psm1 ($FirewallRules).
+.NOTES
+    Every rule gets a stamp: "Disabled", or "NotFound" when the rule does not exist on this build,
+    so the orchestrator does not re-run the stage forever.
 #>
 
-# -------  Bootstrap: load shared settings  -------
 Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
+Start-DeployStage -Name "FirewallRules" -Title "Stage 2b - Set Firewall Rules for VM Deploy"
 
-$SourceFiles = "FirewallRules"
-$LogPath     = "$DeployITLogs\$SourceFiles-PS.log"
-Start-Transcript -Path $LogPath -Force -Append
+$failed = $false
 
-Initialize-DeployEnvironment
-
-# -------  Disable firewall rules  -------
-
-Write-Host "========================================================"
-Write-Host "            Set Firewall Rules for VM Deploy"
-Write-Host "========================================================"
-
-foreach ($Rule in $FirewallRules) {
-    $fw = Get-NetFirewallRule -Name $Rule -ErrorAction SilentlyContinue
+foreach ($rule in $FirewallRules) {
+    $fw = Get-NetFirewallRule -Name $rule -ErrorAction SilentlyContinue
     if (-not $fw) {
-        Write-Warning "Firewall rule '$Rule' not found - skipping."
+        Write-Warning "Firewall rule '$rule' not found - skipping."
+        Set-DeployStamp -Name $rule -Value "NotFound"
         continue
     }
 
-    if ($fw.Enabled -eq $false) {
-        Write-Host "Rule '$Rule' is already disabled."
-    } else {
-        Write-Host "Disabling rule '$Rule' ..."
-        Set-NetFirewallRule -Name $Rule -Enabled False
-    }
-
     try {
-        New-ItemProperty -Path $ApplicationKeyPath -Name $Rule -Value "Disabled" -PropertyType String -Force | Out-Null
-        Write-Host "Registry value for '$Rule' written successfully."
-    } catch {
-        Write-Warning "Failed to write registry value for '$Rule'."
+        if ($fw.Enabled -eq "False") {
+            Write-Host "Rule '$rule' is already disabled."
+        } else {
+            Write-Host "Disabling rule '$rule' ..."
+            Set-NetFirewallRule -Name $rule -Enabled False -ErrorAction Stop
+        }
+        Set-DeployStamp -Name $rule -Value "Disabled"
+    }
+    catch {
+        Write-Warning "Could not disable '$rule': $($_.Exception.Message)"
+        $failed = $true
     }
 }
 
-Stop-Transcript
-exit 0
+exit (Stop-DeployStage $(if ($failed) { $ExitFailure } else { $ExitSuccess }))

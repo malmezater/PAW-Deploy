@@ -1,12 +1,14 @@
 <ModuleProfiles>
   <Profile Name="PAW-Workgroup">
-    <Module Name="Az"                                  DisplayName="Azure Az"                              Default="True"  />
-    <Module Name="Microsoft.Graph"                     DisplayName="Microsoft Graph"                       Default="True"  />
-    <Module Name="ExchangeOnlineManagement"            DisplayName="Exchange Online Management"            Default="True"  />
-    <Module Name="MicrosoftTeams"                      DisplayName="Microsoft Teams"                       Default="False" />
-    <Module Name="PnP.PowerShell"                      DisplayName="PnP PowerShell (SharePoint)"           Default="False" />
-    <Module Name="Microsoft.Online.SharePoint.PowerShell" DisplayName="SharePoint Online Management Shell" Default="False" />
-    <Module Name="MSCommerce"                          DisplayName="MS Commerce"                           Default="False" />
-    <Module Name="Microsoft.Graph.Beta"                DisplayName="Microsoft Graph (Beta)"                Default="False" />
+    <Module Name="Az"                                      DisplayName="Azure Az"                            Default="False"  Description="Azure PowerShell - cmdlets for managing Azure resources." />
+    <Module Name="Microsoft.Graph"                         DisplayName="Microsoft Graph"                     Default="False"  Description="Microsoft Graph PowerShell SDK for Entra ID and Microsoft 365." />
+    <Module Name="ExchangeOnlineManagement"                DisplayName="Exchange Online Management"          Default="False"  Description="Manage Exchange Online and Security and Compliance." />
+    <Module Name="MicrosoftTeams"                          DisplayName="Microsoft Teams"                     Default="False"  Description="Manage Microsoft Teams settings and policies." />
+    <Module Name="PnP.PowerShell"                          DisplayName="PnP PowerShell (SharePoint)"         Default="False"  Description="Community module for SharePoint Online and Microsoft 365." />
+    <Module Name="Microsoft.Online.SharePoint.PowerShell"  DisplayName="SharePoint Online Management Shell"  Default="False"  Description="SharePoint Online Management Shell." />
+    <Module Name="MSCommerce"                              DisplayName="MS Commerce"                         Default="False"  Description="Manage self-service purchase settings in Microsoft 365." />
+    <Module Name="Microsoft.Graph.Beta"                    DisplayName="Microsoft Graph (Beta)"              Default="False"  Description="Microsoft Graph PowerShell SDK for the beta endpoint." />
+    <Package Name="SecurityAudit"                                                                            Default="False" />
+    <Package Name="AzureDevOps"                                                                              Default="False" />
   </Profile>
 </ModuleProfiles>

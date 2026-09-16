@@ -1,17 +1,14 @@
 <AppProfiles>
   <Profile Name="PAW-Workgroup">
-    <App Id="Microsoft.AzureCLI"           DisplayName="Microsoft Azure CLI"  Default="True"   />
-    <App Id="Microsoft.PowerShell"         DisplayName="PowerShell 7"         Default="True"   />
-    <App Id="Microsoft.VisualStudioCode"   DisplayName="Visual Studio Code"   Default="False"  />
-    <App Id="Microsoft.WindowsTerminal"    DisplayName="Windows Terminal"     Default="False"  />
-    <App Id="GitHub.GitHubDesktop"         DisplayName="GitHub Desktop"       Default="False"  />
-    <App Id="Git.Git"                      DisplayName="Git Console"          Default="False"  />
-    <App Id="7zip.7zip"                    DisplayName="7-Zip"                Default="False"  />
-    <App Id="Notepad++.Notepad++"          DisplayName="Notepad++"            Default="False"  />
-    <App Id="Microsoft.Sysinternals.Suite" DisplayName="Sysinternals Suite"   Default="False"  />
-    <App Id="OpenJS.NodeJS"                DisplayName="Node JS"              Default="False"  />
-    <App Id="Microsoft.DotNet.SDK.10"      DisplayName=".NET SDK 10.0"        Default="False"  />
-    <App Id="Python.Python.3.12"           DisplayName="Python 3.12 (Prowler)"         Default="True"   />
-    <App Id="JGraph.Draw"                  DisplayName="draw.io (ARI network diagram)" Default="False"  />
+    <App Id="Microsoft.AzureCLI"            DisplayName="Microsoft Azure CLI"  Default="False"  Description="Command-line tool (az) for managing Azure resources." />
+    <App Id="Microsoft.PowerShell"          DisplayName="PowerShell 7"         Default="False"  Description="PowerShell 7, the cross-platform shell. Runs side by side with Windows PowerShell 5.1." />
+    <App Id="Microsoft.VisualStudioCode"    DisplayName="Visual Studio Code"   Default="False"  Description="Code editor with PowerShell, Bicep and Git support." />
+    <App Id="Microsoft.WindowsTerminal"     DisplayName="Windows Terminal"     Default="False"  Description="Tabbed terminal for PowerShell, cmd and WSL." />
+    <App Id="GitHub.GitHubDesktop"          DisplayName="GitHub Desktop"       Default="False"  Description="Graphical Git client for GitHub repositories." />
+    <App Id="7zip.7zip"                     DisplayName="7-Zip"                Default="False"  Description="File archiver for zip, 7z and other formats." />
+    <App Id="Notepad++.Notepad++"           DisplayName="Notepad++"            Default="False"  Description="Lightweight text and code editor." />
+    <App Id="Microsoft.Sysinternals.Suite"  DisplayName="Sysinternals Suite"   Default="False"  Description="Sysinternals troubleshooting tools (Process Explorer, Autoruns, PsExec and more)." />
+    <Package Name="SecurityAudit"                                              Default="False" />
+    <Package Name="AzureDevOps"                                                Default="False" />
   </Profile>
 </AppProfiles>

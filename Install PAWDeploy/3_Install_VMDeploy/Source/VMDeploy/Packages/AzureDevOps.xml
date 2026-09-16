@@ -1,0 +1,23 @@
+<!--
+  Azure DevOps package - tools for working with Azure, infrastructure as code and Git repositories.
+  Referenced from Apps.xml / Modules.xml with <Package Name="AzureDevOps" />.
+  Shown once in the Packages box of VM Deploy; <App> and <Module> entries are installed when it is checked.
+-->
+<Package Name="AzureDevOps" DisplayName="Azure DevOps">
+  <!-- winget -->
+  <App Id="Microsoft.PowerShell"          DisplayName="PowerShell 7"         Description="PowerShell 7, the cross-platform shell. Runs side by side with Windows PowerShell 5.1." />
+  <App Id="Microsoft.WindowsTerminal"     DisplayName="Windows Terminal"     Description="Tabbed terminal for PowerShell, cmd and WSL." />
+  <App Id="Microsoft.AzureCLI"            DisplayName="Microsoft Azure CLI"  Description="Command-line tool (az) for managing Azure resources." />
+  <App Id="Microsoft.Bicep"               DisplayName="Bicep CLI"            Description="Build, lint and decompile Bicep templates locally." />
+  <App Id="Hashicorp.Terraform"           DisplayName="Terraform"            Description="HashiCorp Terraform CLI for infrastructure as code." />
+  <App Id="Git.Git"                       DisplayName="Git"                  Description="Git for Windows - command-line Git, used by VS Code and GitHub Desktop." />
+  <App Id="Microsoft.VisualStudioCode"    DisplayName="Visual Studio Code"   Description="Code editor with PowerShell, Bicep and Git support." />
+  <App Id="GitHub.GitHubDesktop"          DisplayName="GitHub Desktop"       Description="Graphical Git client for GitHub repositories." />
+
+  <!-- PowerShell modules (installed in this order) -->
+  <Module Name="Az"                    DisplayName="Azure Az"                Description="Azure PowerShell - cmdlets for managing Azure resources." />
+  <Module Name="Microsoft.Graph"       DisplayName="Microsoft Graph"         Description="Microsoft Graph PowerShell SDK for Entra ID and Microsoft 365." />
+  <Module Name="Microsoft.Graph.Beta"  DisplayName="Microsoft Graph (Beta)"  Description="Microsoft Graph PowerShell SDK for the beta endpoint." />
+  <Module Name="PSScriptAnalyzer"      DisplayName="PSScriptAnalyzer"        Description="Static code checker (linter) for PowerShell scripts and modules." />
+  <Module Name="Pester"                DisplayName="Pester"                  SkipPublisherCheck="True"  Description="PowerShell test framework for scripts and pipelines." />
+</Package>

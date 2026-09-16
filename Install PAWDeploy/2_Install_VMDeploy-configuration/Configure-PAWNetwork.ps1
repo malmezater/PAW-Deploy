@@ -1,56 +1,51 @@
-﻿
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Stage 2a - Create the Hyper-V external VM switch ("Ethernet Cable").
+    Stage 2a - Create the Hyper-V external VM switch used by guest VMs.
+.NOTES
+    Switch name and adapter come from Settings.psm1 ($VMSwitchName, $VMSwitchAdapterName).
 #>
 
-# -------  Bootstrap: load shared settings  -------
 Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
-
-$SourceFiles = "PawNetwork"
-$LogPath     = "$DeployITLogs\$SourceFiles-PS.log"
-Start-Transcript -Path $LogPath -Force -Append
-
-Initialize-DeployEnvironment
-
-# -------  Pre-check: Hyper-V must be enabled  -------
-
-Write-Host "========================================================"
-Write-Host "             Configure PAW VM Network Switch"
-Write-Host "========================================================"
+Start-DeployStage -Name "PawNetwork" -Title "Stage 2a - Configure PAW VM Network Switch"
 
 if ((Get-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V").State -ne "Enabled") {
-    Write-Warning "Hyper-V is not enabled. Cannot configure network. Exiting."
-    Stop-Transcript
-    exit 1
+    Write-Warning "Hyper-V is not enabled (a reboot may still be pending). Cannot configure network."
+    exit (Stop-DeployStage $ExitFailure)
 }
 
-# -------  Create VM switch if missing  -------
-
-if (Get-VMSwitch | Where-Object Name -EQ "Ethernet Cable") {
-    Write-Host "VMSwitch 'Ethernet Cable' already exists - skipping creation."
-} else {
-    $NetAdapter = Get-NetAdapter -Physical | Where-Object Status -EQ "Up" | Select-Object -First 1
-    if (-not $NetAdapter) {
-        Write-Warning "No active physical network adapter found. Cannot create VM switch."
-        Stop-Transcript
-        exit 1
+if (Get-VMSwitch -Name $VMSwitchName -ErrorAction SilentlyContinue) {
+    Write-Host "VMSwitch '$VMSwitchName' already exists."
+}
+else {
+    if ($VMSwitchAdapterName) {
+        $adapter = Get-NetAdapter -Name $VMSwitchAdapterName -Physical -ErrorAction SilentlyContinue
+        if (-not $adapter) {
+            Write-Warning "Configured adapter '$VMSwitchAdapterName' was not found."
+            exit (Stop-DeployStage $ExitFailure)
+        }
+    }
+    else {
+        $upAdapters = @(Get-NetAdapter -Physical | Where-Object Status -EQ "Up")
+        if ($upAdapters.Count -eq 0) {
+            Write-Warning "No active physical network adapter found. Cannot create VM switch."
+            exit (Stop-DeployStage $ExitFailure)
+        }
+        if ($upAdapters.Count -gt 1) {
+            Write-Warning "Several active adapters found ($($upAdapters.Name -join ', ')). Using the first one - set `$VMSwitchAdapterName in Settings.psm1 to choose explicitly."
+        }
+        $adapter = $upAdapters[0]
     }
 
-    Write-Host "Creating VMSwitch 'Ethernet Cable' on adapter: $($NetAdapter.Name)"
-    New-VMSwitch -Name "Ethernet Cable" -NetAdapterName $NetAdapter.Name -AllowManagementOS $true | Out-Null
-    Write-Host "VMSwitch created successfully."
+    Write-Host "Creating VMSwitch '$VMSwitchName' on adapter: $($adapter.Name)"
+    try {
+        New-VMSwitch -Name $VMSwitchName -NetAdapterName $adapter.Name -AllowManagementOS $true -ErrorAction Stop | Out-Null
+    }
+    catch {
+        Write-Warning "Could not create VMSwitch: $($_.Exception.Message)"
+        exit (Stop-DeployStage $ExitFailure)
+    }
 }
 
-# -------  Write registry  -------
-
-try {
-    New-ItemProperty -Path $ApplicationKeyPath -Name $SourceFiles -Value "True" -PropertyType String -Force | Out-Null
-    Write-Host "Registry value '$SourceFiles' written successfully."
-} catch {
-    Write-Warning "Failed to write registry value for $SourceFiles."
-}
-
-Stop-Transcript
-exit 0
+Set-DeployStamp -Name "PawNetwork" -Value "True"
+exit (Stop-DeployStage $ExitSuccess)
