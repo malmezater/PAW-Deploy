@@ -11,5 +11,7 @@
     <App Id="Microsoft.Sysinternals.Suite" DisplayName="Sysinternals Suite"   Default="False"  />
     <App Id="OpenJS.NodeJS"                DisplayName="Node JS"              Default="False"  />
     <App Id="Microsoft.DotNet.SDK.10"      DisplayName=".NET SDK 10.0"        Default="False"  />
+    <App Id="Python.Python.3.12"           DisplayName="Python 3.12 (Prowler)"         Default="True"   />
+    <App Id="JGraph.Draw"                  DisplayName="draw.io (ARI network diagram)" Default="False"  />
   </Profile>
 </AppProfiles>
