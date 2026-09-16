@@ -5,9 +5,9 @@
 The solution is designed to be deployed via **Microsoft Intune** (as a Win32 app) or run manually by an administrator, and it tracks installation state through the Windows registry to make every stage idempotent and re-runnable.
 
 <p align="center">
-  <a href="https://github.com/malmezater/PAW-Deploy/releases/latest" rel="nofollow"><img src="https://badgen.net/github/release/malmezater/PAW-Deploy" alt="Latest release" style="max-width: 100%;"></a>
+  <a href="https://github.com/malmezater/PAW-Deploy/releases/latest" rel="nofollow"><img src="https://badgen.net/github/release/malmezater/PAW-Deploy/latest?cache=3600" alt="Latest release" style="max-width: 100%;"></a>
   <br>
-  <a href="https://github.com/malmezater/PAW-Deploy/commits/main" rel="nofollow"><img src="https://badgen.net/github/last-commit/malmezater/PAW-Deploy" alt="Last commit" style="max-width: 100%;"></a>
+  <a href="https://github.com/malmezater/PAW-Deploy/commits/main" rel="nofollow"><img src="https://badgen.net/github/last-commit/malmezater/PAW-Deploy/main?cache=3600" alt="Last commit" style="max-width: 100%;"></a>
   <img src="https://badgen.net/badge/PowerShell/%E2%89%A5%205.1/blue" alt="PowerShell 5.1+" style="max-width: 100%;">
 </p>
 
