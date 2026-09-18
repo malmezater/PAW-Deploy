@@ -454,7 +454,11 @@ Function Mount-VIAVHDInFolder
         $MountFolder
     )
     $BitLockerRegPath = "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FVE"
-    if ((Get-ItemPropertyValue -Path $BitLockerRegPath -Name "FDVDenyWriteAccess") -eq "1") {
+    # Get-ItemPropertyValue throws a terminating error when the property isn't set (the common
+    # case - this GPO is usually not configured), which prints in red on every VM build even
+    # though nothing is actually wrong. try/catch suppresses it; Get-ItemProperty alone wouldn't.
+    $DenyWriteAccess = try { Get-ItemPropertyValue -Path $BitLockerRegPath -Name "FDVDenyWriteAccess" -ErrorAction Stop } catch { $null }
+    if ($DenyWriteAccess -eq "1") {
         Set-ItemProperty -Path $BitLockerRegPath -Name "FDVDenyWriteAccess" -Value "0"
     }
     $MountVHD = New-Item -Path $MountFolder -ItemType Directory -Force
@@ -542,7 +546,8 @@ Function Enable-VIANestedHyperV
     if(($VMCPU).ExposeVirtualizationExtensions -ne $true){Write-Warning "$VMname is not set to Expose Virtualization Extensions, Modifying";Set-VMProcessor -VM $VM -ExposeVirtualizationExtensions $true}
 
     $BitLockerRegPath = "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FVE"
-    if ((Get-ItemPropertyValue -Path $BitLockerRegPath -Name "FDVDenyWriteAccess") -eq "0") {
+    $DenyWriteAccess = try { Get-ItemPropertyValue -Path $BitLockerRegPath -Name "FDVDenyWriteAccess" -ErrorAction Stop } catch { $null }
+    if ($DenyWriteAccess -eq "0") {
         Set-ItemProperty -Path $BitLockerRegPath -Name "FDVDenyWriteAccess" -Value "1"
     }
 }

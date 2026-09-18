@@ -34,7 +34,7 @@ Full field reference: [CONFIGURATION.md](CONFIGURATION.md).
 
 ## 3. Choose which apps and modules guest VMs get
 
-If you want the VM Deploy UI to offer optional winget applications / PowerShell modules per template, define profiles in [Apps.xml](../../Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Apps.xml) and [Modules.xml](../../Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Modules.xml), then reference the profile names from the relevant template in [Config.xml](../../Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Config.xml). Format details: [CONFIGURATION.md](CONFIGURATION.md#appsxml--modulesxml).
+If you want the VM Deploy UI to offer optional winget applications / PowerShell modules per template, define profiles in [Apps.xml](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/Apps.xml) and [Modules.xml](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/Modules.xml), then reference the profile names from the relevant template in [Config.xml](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/Config.xml). Format details: [CONFIGURATION.md](CONFIGURATION.md#appsxml--modulesxml).
 
 This step is optional — templates without an `AppProfile`/`ModuleProfile` simply skip that checklist (Intune OOBE templates intentionally skip both, since app/module delivery happens via Intune post-enrollment).
 

@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Stage 2c - Add the signed-in user to Hyper-V Administrators and (optionally)
@@ -9,7 +9,7 @@
     instead of hanging the installation. Run this script interactively later to create it.
 #>
 
-Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
+Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
 Start-DeployStage -Name "HyperV-Admins" -Title "Stage 2c - Hyper-V Administrators"
 
 $HyperVAdminsSid = "S-1-5-32-578"

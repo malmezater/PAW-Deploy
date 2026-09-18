@@ -26,8 +26,11 @@ Prerequisites for both the PAW host (running the installer) and the guest VMs it
 | --- | --- |
 | Access to the VHDX source configured in `$DownloadUrl` (`Settings.psm1`) | Downloading the template VHDX — see supported source types below. |
 | `https://aka.ms/downloadazcopy-v10-windows` | Only if the VHDX source is Azure Blob/Files — AzCopy is auto-installed on demand. |
-| `cdn.winget.microsoft.com` (from inside guest VMs) | Installing winget applications during guest provisioning. |
+| `api.github.com` and `github.com` (from the **host**) | Fetching the latest winget-cli release for the guest bootstrap. |
+| `codeload.github.com` (from the **host**) | **Easy to miss:** GitHub `…/archive/…zip` URLs (used by `<Download>` entries in packages) redirect from `github.com` to this separate host. A proxy that allows `github.com` but not `codeload.github.com` answers **504 Gateway Timeout**, and the download falls back to a cached copy — or fails outright on a host that has never downloaded it. |
+| `cdn.winget.microsoft.com` (from the **host**) | The winget client dependencies and the package index (`Microsoft.Winget.Source`), staged on the host and pushed into the guest. |
 | `www.powershellgallery.com` (from inside guest VMs) | Installing PowerShell modules during guest provisioning. |
+| Vendor download URLs (from inside guest VMs) | winget downloads each application's installer from its publisher during guest provisioning. |
 
 Supported VHDX/config source types (auto-detected from the URL):
 

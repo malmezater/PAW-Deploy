@@ -47,27 +47,27 @@ if (-not $DownloadUrl -or $DownloadUrl -match '^\W*Download\s*URL(\s*Here)?$' -o
 
 $Stages = @(
     @{ Id = "1";  Name = "Install Hyper-V features"
-       Script = "1_Install-Features_for_PAW\Install-Features_for_PAW.ps1"
+       Script = "Stages\1_Install-Features_for_PAW\Install-Features_for_PAW.ps1"
        IsDone = { Test-DeployStamp -Name $HyperVFeatures -Value "Enabled" } }
 
     @{ Id = "2a"; Name = "Configure PAW network"
-       Script = "2_Install_VMDeploy-configuration\Configure-PAWNetwork.ps1"
+       Script = "Stages\2_Install_VMDeploy-configuration\Configure-PAWNetwork.ps1"
        IsDone = { Test-DeployStamp -Name "PawNetwork" -Value "True" } }
 
     @{ Id = "2b"; Name = "Set firewall rules"
-       Script = "2_Install_VMDeploy-configuration\Set-FirewallRules.ps1"
+       Script = "Stages\2_Install_VMDeploy-configuration\Set-FirewallRules.ps1"
        IsDone = { Test-DeployStamp -Name $FirewallRules } }
 
     @{ Id = "2c"; Name = "Add Hyper-V administrators"
-       Script = "2_Install_VMDeploy-configuration\Add-HyperVAdmin.ps1"
+       Script = "Stages\2_Install_VMDeploy-configuration\Add-HyperVAdmin.ps1"
        IsDone = { Test-DeployStamp -Name "HyperV-Admins" -Value "True" } }
 
     @{ Id = "3";  Name = "Install VMDeploy $ScriptVersion"
-       Script = "3_Install_VMDeploy\Install-VMDeploy.ps1"
+       Script = "Stages\3_Install_VMDeploy\Install-VMDeploy.ps1"
        IsDone = { Test-DeployStamp -Name "VMDeployVersion" -Value $ScriptVersion } }
 
     @{ Id = "4";  Name = "Download Windows VHDX $VHDXVersion"
-       Script = "4_Download_Windows_VHDX\download-vhdx.ps1"
+       Script = "Stages\4_Download_Windows_VHDX\download-vhdx.ps1"
        IsDone = { Test-DeployStamp -Name "WindowsVHDX" -Value $VHDXVersion } }
 )
 

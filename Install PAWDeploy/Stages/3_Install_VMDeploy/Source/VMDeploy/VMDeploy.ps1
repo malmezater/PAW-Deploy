@@ -1,15 +1,18 @@
 ﻿[cmdletbinding(SupportsShouldProcess=$true)]
 Param
 (
-    [parameter(Position=1,mandatory=$True)]
-    [ValidateNotNullOrEmpty()]
+    # Not mandatory: when -DataFromFile is used (how VMDeploywUI.ps1 launches this script), these
+    # arrive from the encrypted hand-off file instead of the command line, so nothing the operator
+    # typed ever has to survive command-line quoting. Marking them mandatory would make PowerShell
+    # prompt for them in that case, which looks like a hung window. They are checked explicitly
+    # after the hand-off file is read.
+    [parameter(Position=1,mandatory=$False)]
     [String]
-    $VMname,
+    $VMname = "",
 
-    [parameter(Position=2,mandatory=$True)]
-    [ValidateNotNullOrEmpty()]
+    [parameter(Position=2,mandatory=$False)]
     [String]
-    $Template,
+    $Template = "",
 
     [parameter(Position=3,mandatory=$False)]
     [ValidateNotNullOrEmpty()]
@@ -83,8 +86,44 @@ Param
     $Downloads = @()
 )
 
+# Safety net: this script is normally launched by VMDeploywUI.ps1 via Start-Process, in its own
+# console window with no -NoExit - if ANYTHING throws an unhandled terminating error anywhere
+# below (a bad module, a missing dependency, whatever), the window closes the instant the script
+# ends, often too fast to read, and (if it happens before Start-Transcript) with no log at all.
+# This trap guarantees that can't happen silently again: log the real error to a file that is
+# always writable, print it, and hold the window open long enough to actually read it.
+trap {
+    $ErrorLog = Join-Path $env:TEMP "VMDeploy-fatal-error.log"
+    $Message = "$(Get-Date -Format o)  VMDeploy.ps1 failed:`r`n$($_ | Out-String)`r`n$($_.ScriptStackTrace)"
+    try { Add-Content -Path $ErrorLog -Value $Message -ErrorAction Stop } catch { }
+    Write-Host ""
+    Write-Host "========================================================" -ForegroundColor Red
+    Write-Host "  VMDeploy.ps1 failed - see below (also logged to $ErrorLog)" -ForegroundColor Red
+    Write-Host "========================================================" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor DarkRed
+    try { Stop-Transcript | Out-Null } catch { }
+    Write-Host ""
+    Write-Host "Closing in 60 seconds - press Ctrl+C to close now, or read this first." -ForegroundColor Yellow
+    Start-Sleep -Seconds 60
+    Exit 1
+}
+
 if($RootFolder -eq "NA"){
-    $RootFolder = $MyInvocation.MyCommand.Path | Split-Path -Parent 
+    $RootFolder = $MyInvocation.MyCommand.Path | Split-Path -Parent
+}
+
+# Hyper-V management (VM creation, VHD mount, etc.) requires local Administrator rights, but
+# nothing enforced that before this check existed - launched non-elevated (e.g. from a plain
+# console instead of the "Deploy Windows" shortcut, which has its Run-as-administrator flag set),
+# this script would fail near-instantly on its first privileged call, often before Start-Transcript
+# even runs, so the spawned console window closes with no visible error and no log. Fail loudly
+# and immediately instead.
+$IsElevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if(-not $IsElevated){
+    Write-Warning "VMDeploy.ps1 must run elevated (Hyper-V management requires local Administrator rights). Launch 'Deploy Windows' from the Start Menu (it runs as administrator), or start PowerShell as Administrator first."
+    Start-Sleep -Seconds 15
+    Exit 1
 }
 
 Function New-TSxShortCut{
@@ -114,7 +153,70 @@ Function New-TSxShortCut{
     }
 }
 
-Start-Transcript -Path "C:\ProgramData\VMDeploy\logs\$VMName-VMDeploy.log" -Append
+# Read the hand-off file from VMDeploywUI.ps1 BEFORE anything uses its values (the transcript path
+# below already needs $VMName). Everything the operator typed travels in this file rather than on
+# the command line - that keeps user input away from a command-line boundary entirely (the
+# recommended fix for docs/security/SECURITY-REVIEW.md finding 1) and avoids Windows PowerShell
+# 5.1's Start-Process -ArgumentList, which joins array elements with spaces WITHOUT quoting them
+# and so silently mangles any value containing a space (e.g. a template named "Windows 11 - WORKGROUP").
+if($DataFromFile){
+    try {
+        # AdminPassword/DomainAdminPassword were DPAPI-encrypted (bound to this user+machine) by
+        # VMDeploywUI.ps1 before being written to disk - decrypt back to plain text here since every
+        # downstream consumer (unattend XML, the PSCredential) expects a plain string. See
+        # docs/security/SECURITY-REVIEW.md finding 6. Uses System.Security.Cryptography.ProtectedData
+        # directly (a plain .NET assembly, loaded via Add-Type) rather than
+        # SecureString/ConvertTo-SecureString, which - like Export-Clixml's special SecureString
+        # handling - depend on the Microsoft.PowerShell.Security PowerShell module and can fail to
+        # autoload on a locked-down host.
+        Add-Type -AssemblyName System.Security -ErrorAction Stop
+        Function Unprotect-VMDeployString
+        {
+            param([string]$ProtectedBase64)
+            if([string]::IsNullOrEmpty($ProtectedBase64)){ return "" }
+            $ProtectedBytes = [Convert]::FromBase64String($ProtectedBase64)
+            $Bytes = [System.Security.Cryptography.ProtectedData]::Unprotect($ProtectedBytes, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
+            return [System.Text.Encoding]::Unicode.GetString($Bytes)
+        }
+        $ProtectedFields = @('AdminPassword', 'DomainAdminPassword')
+
+        $clixmldata = Import-Clixml -Path "$env:TEMP\vmdeploy.xml"
+        foreach($item in $clixmldata.GetEnumerator()){
+            $ItemValue = $item.Value
+            if($ProtectedFields -contains $item.Name){
+                $ItemValue = Unprotect-VMDeployString $ItemValue
+            }
+            New-Variable -Name $item.Name -Value $ItemValue -Force
+        }
+    }
+    finally {
+        # Always remove the temp file, even if Import-Clixml or the loop above throws.
+        Remove-Item -Path "$env:TEMP\vmdeploy.xml" -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# $VMname/$Template are not mandatory parameters (see the Param block) because -DataFromFile
+# supplies them; fail clearly here rather than letting PowerShell prompt for them in a window
+# nobody is watching.
+if([string]::IsNullOrWhiteSpace($VMname) -or [string]::IsNullOrWhiteSpace($Template)){
+    Write-Warning "VMName and Template are required. Pass -VMName/-Template, or -DataFromFile with a hand-off file that contains them."
+    Start-Sleep -Seconds 15
+    Exit 1
+}
+
+$VIALogFolder = "C:\ProgramData\VMDeploy\logs"
+try {
+    New-Item -Path $VIALogFolder -ItemType Directory -Force -ErrorAction Stop | Out-Null
+    Start-Transcript -Path "$VIALogFolder\$VMName-VMDeploy.log" -Append -ErrorAction Stop
+}
+catch {
+    # If this fails (e.g. no write access to C:\ProgramData\VMDeploy), fall back to %TEMP% so the
+    # failure is never silent - and keep going with a transcript rather than exiting, since the
+    # rest of the deployment may well still work (only logging is affected).
+    $FallbackLog = Join-Path $env:TEMP "$VMName-VMDeploy.log"
+    Write-Warning "Could not start the deployment log at $VIALogFolder\$VMName-VMDeploy.log ($($_.Exception.Message)). Logging to $FallbackLog instead."
+    Start-Transcript -Path $FallbackLog -Append
+}
 
 #Get LData
 $XMLLDatafile = "$RootFolder\lConfig.XML"
@@ -130,12 +232,22 @@ switch ($XMLLData.Settings.Source)
     'http' {
         #Get Data
         $XMLDatafile = $XMLLData.Settings.XMLFile
-        [XML]$XMLData = (New-Object System.Net.WebClient).DownloadString($XMLDatafile)
+        # Config.xml controls the domain-join target, MachineObjectOU and VHD source - plain HTTP
+        # would let anyone on the network path rewrite it. See docs/security/SECURITY-REVIEW.md
+        # finding 5.
+        if($XMLDatafile -notmatch '^https://'){
+            throw "LConfig.xml Source is 'http' but XMLFile '$XMLDatafile' is not an https:// URL. Use https:// (or switch Source to 'local'/'unc')."
+        }
+        try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
+        $ConfigResponse = Invoke-WebRequest -Uri $XMLDatafile -UseBasicParsing
+        [XML]$XMLData = $ConfigResponse.Content
     }
     'unc' {
         #Get Data
         $XMLDatafile = $XMLLData.Settings.XMLFile
-        [XML]$XMLData = (New-Object System.Net.WebClient).DownloadString($XMLDatafile)
+        # A UNC path is a filesystem path, not an HTTP endpoint - read it directly instead of
+        # routing it through WebClient. Trust boundary is the SMB share ACLs, same as 'local'.
+        [XML]$XMLData = Get-Content -Path $XMLDatafile -Raw
     }
     Default {}
 }
@@ -182,7 +294,23 @@ Import-Module -Global $rootFolder\Functions\VIADeployModule.psm1 -ErrorAction St
 #Enable verbose for testing
 $Global:VerbosePreference = "Continue"
 
-$VIASetupCompletecmdCommand = "cmd.exe /c PowerShell.exe -Command New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Virtual Machine\Guest' -Name OSDeployment -Value Done -PropertyType String"
+# SetupComplete.cmd runs once inside the guest, right after first logon. The host's
+# Wait-VIAVMDeployment polls the KVP registry for OSDeployment=Done in an UNTIMED loop (it will
+# wait forever), so that write must happen first and must not be able to get stuck behind
+# anything else. The cleanup below it - scrubbing the unattend answer file and the AutoLogon
+# password that Windows Setup would otherwise leave in plaintext on/under the guest disk
+# (Panther\Unattend.xml and HKLM\...\Winlogon\DefaultPassword, see
+# docs/security/SECURITY-REVIEW.md findings 2 and 3) - runs after, so a slow/locked file or
+# registry key during Setup's own finalization phase can never block the host's wait again (this
+# is exactly what caused the deployment to hang indefinitely the first time this ran).
+$VIASetupCompletecmdCommand = @'
+PowerShell.exe -Command "New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Virtual Machine\Guest' -Name OSDeployment -Value Done -PropertyType String -Force"
+del /f /q "%WINDIR%\Panther\Unattend.xml" >nul 2>&1
+del /f /q "%WINDIR%\Panther\unattend.xml" >nul 2>&1
+del /f /q "%WINDIR%\System32\Sysprep\Panther\unattend.xml" >nul 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultPassword /f >nul 2>&1
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoAdminLogon /t REG_SZ /d 0 /f >nul 2>&1
+'@
 
 # -------------------------------------------------------------------------
 # Get-WingetBootstrapPackages
@@ -207,6 +335,7 @@ Function Get-WingetBootstrapPackages {
         Winget = $null
         VCLibs = $null
         Xaml   = $null
+        Source = $null
     }
 
     # --- Microsoft.DesktopAppInstaller (winget) ---------------------------
@@ -262,6 +391,29 @@ Function Get-WingetBootstrapPackages {
     }
     if (Test-Path $xamlFile) { $result.Xaml = (Get-Item $xamlFile).FullName }
 
+    # --- Microsoft.Winget.Source (the package index) ----------------------
+    # Without this, every install fails with 0x8A15000F
+    # (APPINSTALLER_CLI_ERROR_SOURCE_DATA_MISSING, "Data required by the source is
+    # missing"). The guest is supposed to fetch it itself on 'winget source update',
+    # but in a freshly deployed VM that silently does nothing (it reports success
+    # while the Microsoft.Winget.Source package fails to install), so seed it from
+    # the host like every other bootstrap package. Microsoft rebuilds it daily, so
+    # the cache is refreshed daily too; source2.msix is the format current winget
+    # uses (source.msix is the older, much larger equivalent).
+    $sourceFile = Join-Path $CacheFolder 'Microsoft.Winget.Source.msix'
+    $needsSource = -not (Test-Path $sourceFile) -or
+                   ((Get-Item $sourceFile).LastWriteTime -lt (Get-Date).AddDays(-1))
+    if ($needsSource) {
+        try {
+            Write-Verbose "Downloading the winget source index (Microsoft.Winget.Source) ..."
+            $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -Uri 'https://cdn.winget.microsoft.com/cache/source2.msix' -OutFile $sourceFile -UseBasicParsing -ErrorAction Stop
+        } catch {
+            Write-Warning "Could not download the winget source index: $($_.Exception.Message)"
+        }
+    }
+    if (Test-Path $sourceFile) { $result.Source = (Get-Item $sourceFile).FullName }
+
     return [pscustomobject]$result
 }
 
@@ -288,35 +440,48 @@ Function Get-VMDeployDownload {
     $target  = Join-Path $CacheFolder "$safeName$extension"
     $partial = "$target.partial"
 
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $Url -OutFile $partial -UseBasicParsing -ErrorAction Stop
-        Move-Item -Path $partial -Destination $target -Force
-        Write-Verbose "Downloaded $Name ($([math]::Round((Get-Item $target).Length / 1KB)) KB)"
-    }
-    catch {
-        Remove-Item -Path $partial -Force -ErrorAction SilentlyContinue
-        if (Test-Path $target) {
-            Write-Warning "Could not download $Name ($($_.Exception.Message)) - using cached copy from $((Get-Item $target).LastWriteTime)."
+    # Retry transient failures before falling back to the cache. A single 5xx or timeout is common
+    # here: a GitHub archive URL redirects to codeload.github.com, a different host that proxies
+    # often handle worse than github.com itself, and a proxy that cannot reach it answers 504.
+    # Giving up on the first attempt means a cached (possibly stale) copy - or nothing at all on a
+    # host that has never downloaded it.
+    $MaxAttempts = 3
+    $LastError   = $null
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -Uri $Url -OutFile $partial -UseBasicParsing -TimeoutSec 180 -ErrorAction Stop
+            Move-Item -Path $partial -Destination $target -Force
+            Write-Verbose "Downloaded $Name ($([math]::Round((Get-Item $target).Length / 1KB)) KB)"
+            return (Get-Item $target).FullName
         }
-        else {
-            Write-Warning "Could not download $Name from $Url : $($_.Exception.Message)"
-            return $null
+        catch {
+            Remove-Item -Path $partial -Force -ErrorAction SilentlyContinue
+            $LastError = $_.Exception.Message
+            $Status = $null
+            try { $Status = [int]$_.Exception.Response.StatusCode } catch { }
+
+            # 5xx, a timeout (408), rate limiting (429) or no response at all can fix themselves.
+            # A 404 or 403 will not, so do not spend three attempts on it.
+            $Retryable = (-not $Status) -or ($Status -ge 500) -or ($Status -eq 408) -or ($Status -eq 429)
+            if (-not $Retryable -or $attempt -eq $MaxAttempts) { break }
+
+            $Wait = 5 * $attempt
+            Write-Verbose "  $Name -> attempt $attempt of $MaxAttempts failed ($LastError) - retrying in $Wait seconds ..."
+            Start-Sleep -Seconds $Wait
         }
     }
-    return (Get-Item $target).FullName
+
+    if (Test-Path $target) {
+        Write-Warning "Could not download $Name after $MaxAttempts attempts ($LastError) - using cached copy from $((Get-Item $target).LastWriteTime)."
+        return (Get-Item $target).FullName
+    }
+    Write-Warning "Could not download $Name from $Url after $MaxAttempts attempts : $LastError"
+    return $null
 }
 
 ### End Init ###
-
-# Check if $CredFromFile in use
-if($DataFromFile){
-    $clixmldata = Import-Clixml -Path "$env:TEMP\vmdeploy.xml"
-    foreach($item in $clixmldata.GetEnumerator()){
-        New-Variable -Name $item.Name -Value $item.Value -Force
-    }
-    Remove-Item -Path "$env:TEMP\vmdeploy.xml" -Force
-}
 
 # The local Administrator password is needed for the unattend file and for PowerShell Direct.
 # Stop before anything is created instead of failing halfway with a half-built VM.
@@ -695,7 +860,7 @@ desktopheight:i:1200
                     New-Item -Path $folder -ItemType Directory -Force | Out-Null
                 } | Out-Null
 
-                foreach ($file in @($bootstrap.VCLibs, $bootstrap.Xaml, $bootstrap.Winget)) {
+                foreach ($file in @($bootstrap.VCLibs, $bootstrap.Xaml, $bootstrap.Winget, $bootstrap.Source)) {
                     if ($file) {
                         $leaf = Split-Path $file -Leaf
                         Write-Verbose "Copying $leaf into VM ..."
@@ -760,12 +925,47 @@ desktopheight:i:1200
                     }
                     Write-Host "winget alias present: $(Test-Path $alias)"
 
-                    # Reset winget sources so the fresh client re-downloads the index
+                    # Reset winget sources so the fresh client starts from the default config.
                     if (Test-Path $alias -ErrorAction SilentlyContinue) {
                         $p = Start-Process -FilePath $alias `
                             -ArgumentList 'source reset --force' `
                             -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
                         Write-Host "winget source reset exit code: $($p.ExitCode)"
+
+                        # Install the package index from the copy staged by the host. 'source reset'
+                        # only restores the source CONFIGURATION, and in a freshly deployed VM
+                        # 'source update' reports success while the Microsoft.Winget.Source package
+                        # silently fails to install - leaving every install to fail with 0x8A15000F
+                        # ("Data required by the source is missing"). Installing the signed MSIX
+                        # directly is deterministic and needs no connectivity from the guest.
+                        $srcMsix = Get-ChildItem "$folder\Microsoft.Winget.Source*.msix" -ErrorAction SilentlyContinue | Select-Object -First 1
+                        if ($srcMsix) {
+                            try {
+                                Add-AppxPackage -Path $srcMsix.FullName -ForceApplicationShutdown -ErrorAction Stop
+                                Write-Host "Installed winget source index: $($srcMsix.Name)"
+                            } catch {
+                                Write-Warning "Could not install the winget source index ($($srcMsix.Name)): $($_.Exception.Message)"
+                            }
+                        } else {
+                            Write-Warning "No winget source index was staged by the host - falling back to 'winget source update'."
+                        }
+
+                        # Fallback / verification: let winget refresh the index itself, then show
+                        # what it actually has. If this still leaves no usable source, the app
+                        # installs below will say so explicitly.
+                        $u = Start-Process -FilePath $alias `
+                            -ArgumentList 'source update' `
+                            -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
+                        Write-Host "winget source update exit code: $(if ($u) { $u.ExitCode } else { 'n/a' })"
+
+                        $listFile = Join-Path $env:TEMP 'winget-source-list.txt'
+                        Start-Process -FilePath $alias -ArgumentList 'source list' `
+                            -Wait -NoNewWindow -ErrorAction SilentlyContinue `
+                            -RedirectStandardOutput $listFile
+                        if (Test-Path $listFile) {
+                            Write-Host "winget source list:`n$((Get-Content $listFile -Raw).Trim())"
+                            Remove-Item $listFile -Force -ErrorAction SilentlyContinue
+                        }
                     }
 
                     # Cleanup staging folder
@@ -793,21 +993,37 @@ desktopheight:i:1200
             if (-not (Test-Path $winget -ErrorAction SilentlyContinue)) {
                 return @{ Id = $AppId; ExitCode = -99; Scope = 'none'; Error = 'winget App Execution Alias not found (registration may have failed)' }
             }
+
+            # Capture winget's own output, not just its exit code - an exit code alone ("exit
+            # -1978335217") says nothing about what actually went wrong, which makes a failed
+            # install impossible to diagnose from the deployment log.
+            $outFile = Join-Path $env:TEMP "winget-$($AppId -replace '[^A-Za-z0-9._-]','_').log"
+            $RunWinget = {
+                param($ArgLine)
+                Remove-Item $outFile -Force -ErrorAction SilentlyContinue
+                $proc = Start-Process -FilePath $winget -ArgumentList $ArgLine `
+                    -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue `
+                    -RedirectStandardOutput $outFile -RedirectStandardError "$outFile.err"
+                $text = @()
+                foreach ($f in @($outFile, "$outFile.err")) {
+                    if (Test-Path $f) { $text += (Get-Content $f -Raw -ErrorAction SilentlyContinue) }
+                }
+                Remove-Item $outFile, "$outFile.err" -Force -ErrorAction SilentlyContinue
+                [pscustomobject]@{
+                    ExitCode = $(if ($proc) { $proc.ExitCode } else { -1 })
+                    Output   = (($text -join "`n") -replace '\s+$', '')
+                }
+            }
+
             # Try machine scope first (Program Files, visible to all users after reboot)
-            $p = Start-Process -FilePath $winget `
-                -ArgumentList "install --id `"$AppId`" --exact --silent --scope machine --accept-package-agreements --accept-source-agreements" `
-                -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
-            $ec = if ($p) { $p.ExitCode } else { -1 }
-            if ($ec -eq 0 -or $ec -eq -1978335135) {
+            $r = & $RunWinget "install --id `"$AppId`" --exact --silent --scope machine --accept-package-agreements --accept-source-agreements"
+            if ($r.ExitCode -eq 0 -or $r.ExitCode -eq -1978335135) {
                 # -1978335135 (0x8A15002B) = already installed
-                return @{ Id = $AppId; ExitCode = $ec; Scope = 'machine'; Error = $null }
+                return @{ Id = $AppId; ExitCode = $r.ExitCode; Scope = 'machine'; Error = $null; Output = $r.Output }
             }
             # Retry without --scope machine for packages that only support user scope
-            $p2 = Start-Process -FilePath $winget `
-                -ArgumentList "install --id `"$AppId`" --exact --silent --accept-package-agreements --accept-source-agreements" `
-                -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
-            $ec2 = if ($p2) { $p2.ExitCode } else { -1 }
-            return @{ Id = $AppId; ExitCode = $ec2; Scope = 'user'; Error = $null }
+            $r2 = & $RunWinget "install --id `"$AppId`" --exact --silent --accept-package-agreements --accept-source-agreements"
+            return @{ Id = $AppId; ExitCode = $r2.ExitCode; Scope = 'user'; Error = $null; Output = $r2.Output }
         }
 
         foreach ($appId in $AppIds) {
@@ -823,6 +1039,7 @@ desktopheight:i:1200
                     Write-Warning "  $appId -> $($r.Error)"
                 } else {
                     Write-Warning "  $appId -> exit $($r.ExitCode) (scope: $($r.Scope))"
+                    if ($r.Output) { Write-Warning "  $appId -> winget said: $($r.Output)" }
                 }
             }
             catch {
@@ -841,6 +1058,7 @@ desktopheight:i:1200
                         Write-Warning "  $appId -> retry: $($r2.Error)"
                     } else {
                         Write-Warning "  $appId -> exit $($r2.ExitCode) on retry (scope: $($r2.Scope))"
+                        if ($r2.Output) { Write-Warning "  $appId -> winget said: $($r2.Output)" }
                     }
                 }
                 catch {
@@ -874,10 +1092,15 @@ desktopheight:i:1200
             try { Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope AllUsers -ErrorAction Stop | Out-Null } catch { }
             try { Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop } catch { }
 
-            foreach($name in $Names){
+            foreach($entry in $Names){
+                $entry = $entry.Trim()
+                if(-not $entry){ continue }
+                # Modules may be listed as "Name" (latest) or "Name@Version" (pinned) - see the
+                # optional Version attribute on <Module> in Package-Template.xml.
+                $name, $requiredVersion = $entry -split '@', 2
                 $name = $name.Trim()
-                if(-not $name){ continue }
-                Write-Host "Installing module $name (AllUsers, latest) ..."
+                if($requiredVersion){ $requiredVersion = $requiredVersion.Trim() }
+                Write-Host ("Installing module {0} (AllUsers, {1}) ..." -f $name, $(if($requiredVersion){ "version $requiredVersion" } else { "latest" }))
                 try{
                     $InstallParams = @{
                         Name         = $name
@@ -887,6 +1110,7 @@ desktopheight:i:1200
                         Repository   = 'PSGallery'
                         ErrorAction  = 'Stop'
                     }
+                    if($requiredVersion){ $InstallParams.RequiredVersion = $requiredVersion }
                     if(@($SkipPublisherCheckNames) -contains $name){ $InstallParams.SkipPublisherCheck = $true }
                     Install-Module @InstallParams
                     $installed = Get-Module -ListAvailable -Name $name | Sort-Object Version -Descending | Select-Object -First 1

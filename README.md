@@ -11,7 +11,7 @@ The solution is designed to be deployed via **Microsoft Intune** (as a Win32 app
   <img src="https://badgen.net/badge/PowerShell/%E2%89%A5%205.1/blue" alt="PowerShell 5.1+" style="max-width: 100%;">
 </p>
 
-- Installer version: **2.3.0**
+- Installer version: **2.3.1**
 - Default VHDX tag: **Win11-25H2**
 
 ---
@@ -40,7 +40,7 @@ Create your own from [docs/templates/Package-Template.xml](docs/templates/Packag
 
 | Path | Purpose |
 | --- | --- |
-| [Install PAWDeploy/](Install%20PAWDeploy/) | The installer (run by Intune, SCCM, or manually) and the VMDeploy application it deploys. |
+| [Install PAWDeploy/](Install%20PAWDeploy/) | The installer (run by Intune, SCCM, or manually) and the VMDeploy application it deploys. `Install-PAWDeploy.ps1` and `Settings.psm1` sit at the top; the four install stages live in [Stages/](Install%20PAWDeploy/Stages/), and the logo in [Branding/](Install%20PAWDeploy/Branding/). |
 | [Create Templade VHDX/](Create%20Templade%20VHDX/) | Scripts and guide for building the template VHDX that VMDeploy provisions guests from. |
 | [Default Intune Files/](Default%20Intune%20Files/) | Pre-packaged `.intunewin` apps for running/removing VMs, for use with the default configuration. |
 | [docs/](docs/) | Full documentation — see below. |

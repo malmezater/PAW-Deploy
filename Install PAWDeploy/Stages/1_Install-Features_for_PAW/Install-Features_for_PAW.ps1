@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Stage 1 - Enable all required Hyper-V Windows Optional Features.
@@ -8,7 +8,7 @@
     Exit 1    - one or more features could not be enabled
 #>
 
-Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
+Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
 Start-DeployStage -Name "HyperV" -Title "Stage 1 - Install Hyper-V Optional Features"
 
 $rebootRequired = $false

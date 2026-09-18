@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Stage 3 - Copy the VMDeploy source files and create Start Menu shortcuts.
@@ -8,7 +8,7 @@
     differs from $ScriptVersion, which updates an existing installation.
 #>
 
-Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
+Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
 Start-DeployStage -Name "Install-VMDeploy" -Title "Stage 3 - Install VMDeploy $ScriptVersion"
 
 # -------  Copy files  -------
@@ -20,6 +20,35 @@ if ($LASTEXITCODE -ge 8) {
     Write-Warning "Robocopy failed with exit code $LASTEXITCODE."
     exit (Stop-DeployStage $ExitFailure)
 }
+
+# -------  Branding  -------
+# The VM Deploy windows run from $VMDeployPath and cannot read Settings.psm1 (it is not deployed),
+# so the branding is carried across here: the logo is copied in and the chosen names are written to
+# Branding.xml, which the windows read. Without this file they fall back to their built-in defaults.
+
+$ImagesPath = Join-Path $VMDeployPath "Images"
+New-Item -Path $ImagesPath -ItemType Directory -Force | Out-Null
+
+$LogoSource = Join-Path $BrandingPath $BrandingLogo
+if (Test-Path $LogoSource) {
+    Copy-Item -Path $LogoSource -Destination (Join-Path $ImagesPath $BrandingLogo) -Force
+    Write-Host "Branding logo: $BrandingLogo"
+}
+else {
+    Write-Warning "Branding logo '$BrandingLogo' not found in $BrandingPath - the window will show no logo. Put the file there, or correct BrandingLogo in Settings.psm1."
+}
+
+$BrandingDoc = New-Object System.Xml.XmlDocument
+[void]$BrandingDoc.AppendChild($BrandingDoc.CreateXmlDeclaration("1.0", "utf-8", $null))
+$BrandingRoot = $BrandingDoc.CreateElement("Branding")
+foreach ($pair in @{ ProductName = $ProductName; Logo = $BrandingLogo }.GetEnumerator()) {
+    $node = $BrandingDoc.CreateElement($pair.Key)
+    $node.InnerText = $pair.Value
+    [void]$BrandingRoot.AppendChild($node)
+}
+[void]$BrandingDoc.AppendChild($BrandingRoot)
+$BrandingDoc.Save((Join-Path $VMDeployPath "Branding.xml"))
+Write-Host "Branding name: $ProductName"
 
 # -------  Start Menu shortcuts (local installs only)  -------
 

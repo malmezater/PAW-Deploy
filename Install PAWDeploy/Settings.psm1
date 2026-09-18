@@ -2,7 +2,7 @@
 ##*=============================================
 ##* VMDeploy - Settings Module
 ##* Imported by the orchestrator and by every stage script:
-##*   Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
+##*   Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force   (from a script under Stages\)
 ##*=============================================
 
 #region -------  USER-CONFIGURABLE ATTRIBUTES  -------
@@ -10,8 +10,18 @@
 ##* Edit these values before deploying
 ##*=============================================
 
+#  -------  BRANDING  -------
+#  What the operator sees in the VM Deploy windows. Change these two to rebrand the tool.
+#  ProductName  - shown in the window title and the banner, e.g. "Contoso Secure Workstation".
+#  BrandingLogo - file name of the banner logo, placed in the "Branding" folder next to this file.
+#                 A wide-ish PNG works best; it is scaled to fit a 64x64 box.
+#  These are cosmetic only - they do not affect install paths, the registry or Intune detection
+#  (those follow CompanyName / SoftwareName below).
+$Script:ProductName    = "Privileged Access Workstation"
+$Script:BrandingLogo   = "PAWDeploy.png"
+
 $Script:CompanyName    = "DeployIT"            # Name of the company deploying the software / Default name is "DeployIT"
-$Script:DownloadUrl    = "\\DownloadURLHere"   # Full URL / UNC path to the VHDX file
+$Script:DownloadUrl    = "https://DownloadURLHere"   # Full URL / UNC path to the VHDX file
 $Script:VHDXVersion    = "Win11-25H2"          # Version tag for the VHDX file
 $Script:VHDXSha256     = ""                    # Optional SHA256 of the VHDX. When set, the download is verified before it is used.
 
@@ -22,6 +32,11 @@ $Script:LocalInstall   = $true
 # Hyper-V external switch used by the guest VMs (must match <VMSwitch> in Config.xml).
 $Script:VMSwitchName        = "Ethernet Cable"
 $Script:VMSwitchAdapterName = ""               # Physical adapter to bind to. Empty = first physical adapter that is Up.
+
+# Optional: instead of disabling $FirewallRules outright (opening WMI/RPC and enhanced-session RDP
+# listeners on the PAW host to the whole network), scope them to a trusted management subnet, e.g.
+# "10.0.5.0/24". Leave empty to keep the current disable-outright behavior.
+$Script:FirewallScopeSubnet = ""
 
 # Create the local "Hypervuser" account (member of Hyper-V Administrators).
 # The password is prompted for, so the account is only created in an interactive session.
@@ -35,8 +50,11 @@ $Script:CreateHyperVUser = $true
 ##* you are doing.
 ##*=============================================
 
-$Script:ScriptVersion = "2.3.0"
+$Script:ScriptVersion = "2.3.1"
 $Script:SoftwareName  = "VMDeploy"
+
+# Where the operator drops a replacement logo (see BrandingLogo above).
+$Script:BrandingPath  = "$PSScriptRoot\Branding"
 
 # Paths
 $Script:DeployPath        = "$env:ProgramData\$Script:CompanyName"
@@ -128,9 +146,23 @@ function Stop-DeployStage {
 }
 
 function Get-DeployStamp {
+    <#
+    .SYNOPSIS
+        Returns the stamp's value, or $null when it doesn't exist yet.
+    .NOTES
+        Get-ItemPropertyValue throws a *terminating* error for a missing property -
+        -ErrorAction SilentlyContinue only suppresses non-terminating errors, so it would still
+        print "Property ... does not exist" in red on every not-yet-stamped check (i.e. on every
+        first-time-through-a-stage check during a fresh install). try/catch actually suppresses it.
+    #>
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Name)
-    Get-ItemPropertyValue -Path $Script:ApplicationKeyPath -Name $Name -ErrorAction SilentlyContinue
+    try {
+        Get-ItemPropertyValue -Path $Script:ApplicationKeyPath -Name $Name -ErrorAction Stop
+    }
+    catch {
+        $null
+    }
 }
 
 function Set-DeployStamp {
@@ -183,7 +215,8 @@ function Test-InteractiveSession {
 Export-ModuleMember -Function Initialize-DeployEnvironment, Start-DeployStage, Stop-DeployStage, `
     Get-DeployStamp, Set-DeployStamp, Test-DeployStamp, Test-InteractiveSession -Variable `
     CompanyName, ScriptVersion, SoftwareName, DownloadUrl, VHDXVersion, VHDXSha256, `
-    LocalInstall, VMSwitchName, VMSwitchAdapterName, CreateHyperVUser, `
+    ProductName, BrandingLogo, BrandingPath, `
+    LocalInstall, VMSwitchName, VMSwitchAdapterName, CreateHyperVUser, FirewallScopeSubnet, `
     DeployPath, DeployITLogs, VMDeployPath, VHDXDownloadPath, `
     RegistryPath, RegistrySoftwareName, ApplicationKeyPath, `
     HyperVFeatures, FirewallRules, ExitSuccess, ExitFailure, ExitRebootRequired
