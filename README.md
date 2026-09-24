@@ -15,9 +15,6 @@ The solution is designed to be deployed via **Microsoft Intune** (as a Win32 app
   <img src="https://badgen.net/badge/Windows%2011/Enterprise/blue" alt="Windows 11 Enterprise" style="max-width: 100%;">
 </p>
 
-- Installer version: **2.3.2**
-- Default VHDX tag: **Win11-2609**
-
 ---
 
 ## What it does

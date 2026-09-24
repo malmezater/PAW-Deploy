@@ -817,7 +817,6 @@ desktopheight:i:1200
         else {
             $session = $null
             try {
-                Write-Verbose "Opening PSSession to $VMname for bootstrap copy ..."
                 $session = New-PSSession -VMName $VMname -Credential $Cred -ErrorAction Stop
                 Invoke-Command -Session $session -ScriptBlock {
                     $folder = 'C:\Windows\Temp\WingetBootstrap'
@@ -1485,6 +1484,7 @@ public static class VMDeployLsaSecret {
             try { Write-VIAEvent -Source "VMDeploy-Create" -Message "Could not prime the first interactive logon on '$VMname': $($_.Exception.Message)" -EntryType Warning -EventId 2021 } catch { }
         }
     }
+
 
 
     ##################
