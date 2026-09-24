@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+﻿#Requires -Version 5.1 
 <#
 .SYNOPSIS
     Install AutoPilot module and initialise the Desktop App Installer (winget).
