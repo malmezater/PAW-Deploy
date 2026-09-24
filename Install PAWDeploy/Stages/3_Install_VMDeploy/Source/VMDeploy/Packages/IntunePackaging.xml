@@ -1,0 +1,21 @@
+<!--
+  Intune Packaging package - Microsoft Win32 Content Prep Tool (IntuneWinAppUtil.exe).
+  Referenced from Apps.xml / Modules.xml with <Package Name="IntunePackaging" />.
+  Shown once in the Packages box of VM Deploy; the <Download> is copied into the VM when it is checked.
+
+  The tool is downloaded on the host from Microsoft's GitHub repository (latest master branch) and
+  extracted to C:\PackTools\IntuneWinAppUtil - the archive's top folder
+  (Microsoft-Win32-Content-Prep-Tool-master\) is flattened, so the exe ends up at
+  C:\PackTools\IntuneWinAppUtil\IntuneWinAppUtil.exe.
+  Docs: https://learn.microsoft.com/intune/app-management/deployment/create-win32-package
+
+  Keep your installer sources in their own folder (e.g. C:\PackTools\Source\<App>) - IntuneWinAppUtil
+  zips everything under the source folder, so it must not contain the tool itself.
+    IntuneWinAppUtil.exe -c C:\PackTools\Source\<App> -s setup.exe -o C:\PackTools\Output -q
+-->
+<Package Name="IntunePackaging" DisplayName="Intune Packaging">
+  <!-- Files downloaded into the VM -->
+  <Download Name="Microsoft Win32 Content Prep Tool"
+            Url="https://github.com/microsoft/Microsoft-Win32-Content-Prep-Tool/archive/refs/heads/master.zip"
+            Destination="C:\PackTools\IntuneWinAppUtil" />
+</Package>

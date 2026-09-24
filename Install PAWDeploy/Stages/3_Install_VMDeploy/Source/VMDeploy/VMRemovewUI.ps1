@@ -15,6 +15,25 @@ Add-Type -AssemblyName System.Windows.Forms
 #Get Env:
 $RootFolder = $MyInvocation.MyCommand.Path | Split-Path -Parent
 
+# Event Log entries are readable without local admin rights, unlike C:\ProgramData\VMDeploy (which
+# is SYSTEM-only on Intune/ConfigMgr installs) - see Functions\VIAEventLogModule.psm1.
+try { Import-Module -Global "$RootFolder\Functions\VIAEventLogModule.psm1" -ErrorAction Stop -Force } catch { }
+
+#Get Branding
+# Branding.xml is written by the installer (Stage 3) from BrandingLogo in Settings.psm1.
+# This default is what the tool looks like when it is not present.
+$BrandLogo    = "PAWDeploy.png"
+$BrandingFile = "$RootFolder\Branding.xml"
+if(Test-Path -Path $BrandingFile){
+    try{
+        [XML]$BrandingXML = Get-Content -Path $BrandingFile -Raw
+        if($BrandingXML.Branding.Logo){ $BrandLogo = $BrandingXML.Branding.Logo }
+    }
+    catch{
+        Write-Warning "Could not read $BrandingFile ($($_.Exception.Message)) - using the default branding."
+    }
+}
+
 $Font = 'Consolas,10'
 
 #region begin GUI{ 
@@ -82,7 +101,7 @@ $PictureBox1                     = New-Object system.Windows.Forms.PictureBox
 $PictureBox1.width               = 100
 $PictureBox1.height              = 100
 $PictureBox1.location            = New-Object System.Drawing.Point(462,1)
-$PictureBox1.imageLocation       = "$RootFolder\\images\\PAWDeploy.png"
+$PictureBox1.imageLocation       = "$RootFolder\images\$BrandLogo"
 $PictureBox1.SizeMode            = [System.Windows.Forms.PictureBoxSizeMode]::zoom
 $Form.controls.AddRange(@($Close,$Connect,$Label1,$Label2,$TextBox1,$ListBox1,$Delete,$PictureBox1))
 
@@ -113,6 +132,7 @@ Function Remove-TSxVM{
     }
         
     Write-Host "Working on $VMName"
+    try { Write-VIAEvent -Source "VMDeploy-Remove" -Message "Removing VM: $VMName" -EventId 3000 } catch { }
     $Item = Get-VM -Name $VMName -ErrorAction SilentlyContinue
 
     if($Item.State -eq "Running"){
@@ -138,6 +158,7 @@ Function Remove-TSxVM{
     Get-VM -Id $item.Id | Remove-VM -Force
     Write-Verbose "Removing $ItemLoc"
     Remove-Item -Path $Itemloc -Recurse -Force
+    try { Write-VIAEvent -Source "VMDeploy-Remove" -Message "Removed VM: $VMName (config: $ItemLoc)" -EventId 3001 } catch { }
 }
 Function Connect{
     Write-host "Connecting to $($TextBox1.Text)"

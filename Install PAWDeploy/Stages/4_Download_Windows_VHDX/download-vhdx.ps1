@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Stage 4 - Download the Windows 11 VHDX template.
@@ -13,7 +13,7 @@
     broken template behind.
 #>
 
-Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
+Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
 Start-DeployStage -Name "download-vhdx" -Title "Stage 4 - Download VHDX $VHDXVersion"
 
 function Get-DownloadMethod {
@@ -37,6 +37,14 @@ function Get-AzCopyPath {
         Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
         $found = Get-ChildItem -Path $extractPath -Recurse -Filter "azcopy.exe" | Select-Object -First 1
         if (-not $found) { throw "azcopy.exe not found in the downloaded archive." }
+
+        # Verify the binary before it is trusted and run - see docs/security/SECURITY-REVIEW.md
+        # finding 4 (no integrity/signature check on the AzCopy download).
+        $sig = Get-AuthenticodeSignature -FilePath $found.FullName
+        if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+            throw "azcopy.exe failed Authenticode verification (status: $($sig.Status), signer: $($sig.SignerCertificate.Subject))."
+        }
+
         New-Item -ItemType Directory -Path $installPath -Force | Out-Null
         Copy-Item $found.FullName -Destination $exe -Force
     }

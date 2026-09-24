@@ -36,6 +36,23 @@ if ($sourcePkgs) {
     Write-Host "No Microsoft.Winget.Source packages found - nothing to remove." -ForegroundColor Green
 }
 
+# -------  1b. Remove leftover defaultuser0  -------
+# Pressing CTRL+Shift+F3 in OOBE leaves the temporary OOBE account 'defaultuser0' behind.
+# If it stays in the image it shows up on every deployed VM's logon screen and gets in the
+# way of the Administrator autologon.
+
+Write-Host ""
+Write-Host "=== Removing leftover defaultuser0 ===" -ForegroundColor Cyan
+if (Get-LocalUser -Name 'defaultuser0' -ErrorAction SilentlyContinue) {
+    Get-CimInstance Win32_UserProfile -ErrorAction SilentlyContinue |
+        Where-Object { $_.LocalPath -like '*\defaultuser0*' } |
+        Remove-CimInstance -ErrorAction SilentlyContinue
+    Remove-LocalUser -Name 'defaultuser0' -ErrorAction SilentlyContinue
+    Write-Host "defaultuser0 removed." -ForegroundColor Green
+} else {
+    Write-Host "No defaultuser0 account found." -ForegroundColor Green
+}
+
 # -------  2. Disconnect network  -------
 
 Write-Host ""

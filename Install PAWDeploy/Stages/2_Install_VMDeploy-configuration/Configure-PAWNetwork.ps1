@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Stage 2a - Create the Hyper-V external VM switch used by guest VMs.
@@ -6,7 +6,7 @@
     Switch name and adapter come from Settings.psm1 ($VMSwitchName, $VMSwitchAdapterName).
 #>
 
-Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
+Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force
 Start-DeployStage -Name "PawNetwork" -Title "Stage 2a - Configure PAW VM Network Switch"
 
 if ((Get-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V").State -ne "Enabled") {

@@ -20,6 +20,23 @@ $Process = (Get-Process PowerShell | Where-Object MainWindowTitle -like '*VM Dep
 #Get Env:
 $RootFolder = $MyInvocation.MyCommand.Path | Split-Path -Parent
 
+#Get Branding
+# Branding.xml is written by the installer (Stage 3) from ProductName/BrandingLogo in Settings.psm1.
+# These defaults are what the tool looks like when it is not present.
+$BrandProductName = "Privileged Access Workstation"
+$BrandLogo        = "PAWDeploy.png"
+$BrandingFile     = "$RootFolder\Branding.xml"
+if(Test-Path -Path $BrandingFile){
+    try{
+        [XML]$BrandingXML = Get-Content -Path $BrandingFile -Raw
+        if($BrandingXML.Branding.ProductName){ $BrandProductName = $BrandingXML.Branding.ProductName }
+        if($BrandingXML.Branding.Logo){ $BrandLogo = $BrandingXML.Branding.Logo }
+    }
+    catch{
+        Write-Warning "Could not read $BrandingFile ($($_.Exception.Message)) - using the default branding."
+    }
+}
+
 #Get Data
 $XMLDatafile = "$RootFolder\Config.XML"
 [XML]$XMLData = Get-Content -Path "$XMLDatafile"
@@ -59,7 +76,8 @@ Function New-CheckListItem
         [string]$DisplayName,
         [ValidateSet('App','Module')][string]$Kind,
         [string]$Description,
-        [bool]$SkipPublisherCheck = $false
+        [bool]$SkipPublisherCheck = $false,
+        [string]$Version = ''
     )
     if(-not $DisplayName){ $DisplayName = $Key }
     $Item = New-Object PSObject -Property @{
@@ -69,6 +87,7 @@ Function New-CheckListItem
         DisplayName        = $DisplayName
         Description        = $Description
         SkipPublisherCheck = $SkipPublisherCheck
+        Version            = $Version
     }
     # Override ToString so the CheckedListBox shows the friendly name
     $Item | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
@@ -83,7 +102,8 @@ Function New-ItemFromNode
     New-CheckListItem -Key $Node.GetAttribute($KeyAttribute) -Kind $Kind `
         -DisplayName $Node.GetAttribute('DisplayName') `
         -Description $Node.GetAttribute('Description') `
-        -SkipPublisherCheck ($Node.GetAttribute('SkipPublisherCheck') -eq 'True')
+        -SkipPublisherCheck ($Node.GetAttribute('SkipPublisherCheck') -eq 'True') `
+        -Version $Node.GetAttribute('Version')
 }
 
 Function Get-VMDeployPackage
@@ -243,8 +263,8 @@ Function New-Field
 }
 
 $Form                 = New-Object System.Windows.Forms.Form
-$Form.ClientSize      = New-Object System.Drawing.Size(1000, 660)
-$Form.Text            = "Privileged Access Workstation deployment tool"
+$Form.ClientSize      = New-Object System.Drawing.Size(1000, 694)
+$Form.Text            = "$BrandProductName deployment tool"
 $Form.Font            = $Font
 $Form.StartPosition   = 'CenterScreen'
 $Form.FormBorderStyle = 'FixedDialog'
@@ -253,10 +273,10 @@ $Form.TopMost         = $false
 
 # ── Header ──────────────────────────────────────────────────
 $PictureBox1               = New-Control -Type PictureBox -X 16 -Y 10 -Width 64 -Height 64 -Parent $Form
-$PictureBox1.ImageLocation = "$RootFolder\Images\PAWDeploy.png"
+$PictureBox1.ImageLocation = "$RootFolder\Images\$BrandLogo"
 $PictureBox1.SizeMode      = [System.Windows.Forms.PictureBoxSizeMode]::Zoom
 
-$TitleLabel      = New-Control -Type Label -X 92 -Y 14 -Width 880 -Height 30 -Text "Privileged Access Workstation deployment" -Parent $Form
+$TitleLabel      = New-Control -Type Label -X 92 -Y 14 -Width 880 -Height 30 -Text "$BrandProductName deployment" -Parent $Form
 $TitleLabel.Font = $FontTitle
 $SubtitleLabel   = New-Control -Type Label -X 94 -Y 46 -Width 880 -Height 20 -Parent $Form `
                      -Text "Select a template, adjust the virtual machine settings and choose what to install."
@@ -316,13 +336,18 @@ $ModulesCheckedListBox                = New-Control -Type CheckedListBox -X 12 -
 $ModulesCheckedListBox.CheckOnClick   = $true
 $ModulesCheckedListBox.IntegralHeight = $false
 
+# ── Security baseline (offered only for templates nobody else manages policy for) ──
+$SecurityBaselineCheckBox      = New-Control -Type CheckBox -X 16 -Y 608 -Width 968 -Height 20 -Parent $Form `
+                                    -Text "Apply Windows Client Security Baseline"
+$SecurityBaselineCheckBox.Enabled = $false
+
 # ── Footer ──────────────────────────────────────────────────
-$result           = New-Control -Type Label -X 16 -Y 620 -Width 772 -Height 30 -Parent $Form
+$result           = New-Control -Type Label -X 16 -Y 654 -Width 772 -Height 30 -Parent $Form
 $result.TextAlign = 'MiddleLeft'
 $result.ForeColor = $MutedColor
 
-$OkButton     = New-Control -Type Button -X 800 -Y 618 -Width 88 -Height 32 -Text "Build" -Parent $Form
-$CancelButton = New-Control -Type Button -X 896 -Y 618 -Width 88 -Height 32 -Text "Close" -Parent $Form
+$OkButton     = New-Control -Type Button -X 800 -Y 652 -Width 88 -Height 32 -Text "Build" -Parent $Form
+$CancelButton = New-Control -Type Button -X 896 -Y 652 -Width 88 -Height 32 -Text "Close" -Parent $Form
 $Form.AcceptButton = $OkButton
 $Form.CancelButton = $CancelButton
 
@@ -375,7 +400,8 @@ Function Show-Details
         [void]$Lines.Add('')
         [void]$Lines.Add("Source: PowerShell Gallery")
         [void]$Lines.Add("https://www.powershellgallery.com/packages/$($Item.Name)")
-        [void]$Lines.Add("Installed for all users, latest version" + $(if($Item.SkipPublisherCheck){ " (publisher check skipped)" }))
+        $VersionText = if($Item.Version){ "version $($Item.Version)" } else { "latest version" }
+        [void]$Lines.Add("Installed for all users, $VersionText" + $(if($Item.SkipPublisherCheck){ " (publisher check skipped)" }))
     }
     $DetailsTextBox.Text = ($Lines -join "`r`n")
 }
@@ -411,6 +437,13 @@ Function TemplateListboxChanged
     $DJANameTextBox.Enabled = $IsDomain
     $DJAPasswordTextBox.Enabled = $IsDomain
     if(-not $IsDomain){ $DJANameTextBox.Text = ''; $DJAPasswordTextBox.Text = '' }
+
+    # Only offered for templates that set <ApplySecurityBaseline> - i.e. ones nobody else manages
+    # policy for. Intune-managed and domain-joined templates get hardening from Intune/AD instead,
+    # so the checkbox stays disabled and unchecked for those.
+    $HasBaseline = [bool]$TemplateData.ApplySecurityBaseline
+    $SecurityBaselineCheckBox.Enabled = $HasBaseline
+    $SecurityBaselineCheckBox.Checked = ($HasBaseline -and $TemplateData.ApplySecurityBaseline -eq 'True')
 
     $AppProfile = $null
     if($TemplateData.AppProfile -and $AppsXMLData){
@@ -466,58 +499,176 @@ Function Show-BuildError
     if($Control){ [void]$Control.Focus() }
 }
 
+# Input validation for everything that gets passed to VMDeploy.ps1 - besides catching typos,
+# this is what stands between a text box and a process argument, so it also closes the command
+# injection path a bare interpolated Start-Process command line used to have (see
+# docs/security/SECURITY-REVIEW.md finding 1).
+Function Test-VMDeployVMName
+{
+    param([string]$Value)
+    return ($Value -match '^[A-Za-z0-9-]{1,62}$')
+}
+
+Function Test-VMDeployHostOrIP
+{
+    # 'DHCP' or a dotted-quad IPv4 address.
+    param([string]$Value)
+    return ($Value -eq 'DHCP' -or $Value -match '^\d{1,3}(\.\d{1,3}){3}$')
+}
+
+Function Test-VMDeploySubnetPrefix
+{
+    # 'DHCP' or a CIDR prefix length (0-32).
+    param([string]$Value)
+    return ($Value -eq 'DHCP' -or $Value -match '^(3[0-2]|[12]?\d)$')
+}
+
+Function Test-VMDeployVlanId
+{
+    # Empty (untagged) or a numeric VLAN id.
+    param([string]$Value)
+    return ([string]::IsNullOrWhiteSpace($Value) -or $Value -match '^\d{1,4}$')
+}
+
+Function Test-VMDeployDomainAccount
+{
+    # DOMAIN\user, user@domain, or a bare username - no shell metacharacters.
+    param([string]$Value)
+    return ($Value -match '^[A-Za-z0-9 ._-]+([\\@][A-Za-z0-9 ._-]+)?$')
+}
+
 Function OkButtonSelected
 {
     $Template = $($TemplateListbox.SelectedItem)
     if(-not $Template){ Show-BuildError -Message "Select a template first." -Control $TemplateListbox; return }
     if(-not $VMnameTextBox.Text.Trim()){ Show-BuildError -Message "Enter a VM name." -Control $VMnameTextBox; return }
+    if(-not (Test-VMDeployVMName $VMnameTextBox.Text.Trim())){ Show-BuildError -Message "VM name may only contain letters, digits and hyphens." -Control $VMnameTextBox; return }
     if(-not $LPasswordTextBox.Text){ Show-BuildError -Message "Enter the local administrator password for the VM." -Control $LPasswordTextBox; return }
     if($DJANameTextBox.Enabled){
         if(-not $DJANameTextBox.Text.Trim()){ Show-BuildError -Message "Enter the domain account used to join the domain." -Control $DJANameTextBox; return }
+        if(-not (Test-VMDeployDomainAccount $DJANameTextBox.Text.Trim())){ Show-BuildError -Message "Domain account contains characters that are not allowed." -Control $DJANameTextBox; return }
         if(-not $DJAPasswordTextBox.Text){ Show-BuildError -Message "Enter the password for the domain account." -Control $DJAPasswordTextBox; return }
     }
+    if(-not (Test-VMDeployHostOrIP $IPAddressTextBox.Text.Trim())){ Show-BuildError -Message "IP address must be 'DHCP' or a valid IPv4 address." -Control $IPAddressTextBox; return }
+    if(-not (Test-VMDeployHostOrIP $GatewayTextBox.Text.Trim())){ Show-BuildError -Message "Gateway must be 'DHCP' or a valid IPv4 address." -Control $GatewayTextBox; return }
+    if(-not (Test-VMDeployHostOrIP $DNS1TextBox.Text.Trim())){ Show-BuildError -Message "DNS 1 must be 'DHCP' or a valid IPv4 address." -Control $DNS1TextBox; return }
+    if(-not (Test-VMDeployHostOrIP $DNS2TextBox.Text.Trim())){ Show-BuildError -Message "DNS 2 must be 'DHCP' or a valid IPv4 address." -Control $DNS2TextBox; return }
+    if(-not (Test-VMDeploySubnetPrefix $SubnetTextBox.Text.Trim())){ Show-BuildError -Message "Subnet prefix must be 'DHCP' or 0-32." -Control $SubnetTextBox; return }
+    if(-not (Test-VMDeployVlanId $VlanTextBox.Text.Trim())){ Show-BuildError -Message "VLAN ID must be numeric." -Control $VlanTextBox; return }
+
     $result.ForeColor = $MutedColor
     $result.Text = "Starting the build..."
 
-    $VMname = $VMnameTextBox.Text
-    $OSDAdapter0IPAddressList = $($IPAddressTextBox.Text)
-    $OSDAdapter0Gateways = $($GatewayTextBox.Text)
-    $OSDAdapter0DNS1 = $($DNS1TextBox.Text)
-    $OSDAdapter0DNS2 = $($DNS2TextBox.Text)
-    $OSDAdapter0SubnetMaskPrefix = $($SubnetTextBox.Text)
+    $VMname = $VMnameTextBox.Text.Trim()
+    $OSDAdapter0IPAddressList = $($IPAddressTextBox.Text.Trim())
+    $OSDAdapter0Gateways = $($GatewayTextBox.Text.Trim())
+    $OSDAdapter0DNS1 = $($DNS1TextBox.Text.Trim())
+    $OSDAdapter0DNS2 = $($DNS2TextBox.Text.Trim())
+    $OSDAdapter0SubnetMaskPrefix = $($SubnetTextBox.Text.Trim())
     $AdminPassword = $($LPasswordTextBox.text)
-    $DomainAdmin = $($DJANameTextBox.Text)
+    $DomainAdmin = $($DJANameTextBox.Text.Trim())
     $DomainAdminPassword = $($DJAPasswordTextBox.text)
-    $vlanid = $($VlanTextBox.Text)
+    $vlanid = $($VlanTextBox.Text.Trim())
 
     # Selected apps, modules and downloads (packages expanded, duplicates removed)
     $Selection = Get-Selection
     $WingetApps = (@($Selection.Apps | ForEach-Object { $_.Id }) -join ',')
-    $PSModules = (@($Selection.Modules | ForEach-Object { $_.Name }) -join ',')
+    $PSModules = (@($Selection.Modules | ForEach-Object { if($_.Version){ "$($_.Name)@$($_.Version)" } else { $_.Name } }) -join ',')
     $PSModulesSkipPublisherCheck = (@($Selection.Modules | Where-Object { $_.SkipPublisherCheck } | ForEach-Object { $_.Name }) -join ',')
     $Downloads = @($Selection.Downloads)
 
-    $DataToExport = @{
-        AdminPassword=$AdminPassword
-        DomainAdminPassword=$DomainAdminPassword
-        WingetApps=$WingetApps
-        PSModules=$PSModules
-        PSModulesSkipPublisherCheck=$PSModulesSkipPublisherCheck
-        Downloads=$Downloads
-    }
-    $DataToExport | Export-Clixml -Path "$env:TEMP\vmdeploy.xml"
+    # Everything from here on can fail (disk full, DPAPI unavailable, Export-Clixml denied,
+    # Start-Process denied, ...). A PowerShell Windows Forms click handler routinely swallows an
+    # unhandled exception instead of showing it, which is exactly what made a launch failure look
+    # like "Build just closes, no error, no log" - catch it ALL explicitly (everything below is
+    # inside the try, including building $DataToExport - an earlier version of this fix left that
+    # construction outside the try, so its own errors were never actually caught) and show it
+    # instead of letting the form vanish silently.
+    try {
+        # AdminPassword/DomainAdminPassword are DPAPI-encrypted (bound to this user+machine) before
+        # being written to disk, instead of as literal readable text - see
+        # docs/security/SECURITY-REVIEW.md finding 6. Uses System.Security.Cryptography.ProtectedData
+        # directly (plain .NET assembly loading via Add-Type) rather than the SecureString type or
+        # the ConvertTo-SecureString cmdlet: both of those - along with Export-Clixml's special
+        # SecureString serialization - ultimately depend on the Microsoft.PowerShell.Security
+        # PowerShell module, which can fail to autoload on a locked-down host (confusingly, a
+        # different thing from the System.Security .NET assembly used here). This path never
+        # touches that module at all.
+        Add-Type -AssemblyName System.Security -ErrorAction Stop
+        Function Protect-VMDeployString
+        {
+            param([string]$PlainText)
+            if([string]::IsNullOrEmpty($PlainText)){ return "" }
+            $Bytes = [System.Text.Encoding]::Unicode.GetBytes($PlainText)
+            $Protected = [System.Security.Cryptography.ProtectedData]::Protect($Bytes, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
+            return [Convert]::ToBase64String($Protected)
+        }
+        # EVERYTHING the operator chose or typed travels in this file - nothing of theirs goes on
+        # the command line. That is the recommended fix for docs/security/SECURITY-REVIEW.md
+        # finding 1 (no user input crosses a command-line boundary, so there is nothing to inject
+        # into), and it also sidesteps a Windows PowerShell 5.1 defect: Start-Process
+        # -ArgumentList joins array elements with spaces WITHOUT quoting them, so any value
+        # containing a space - such as the template name "Windows 11 - WORKGROUP" - arrives at
+        # VMDeploy.ps1 split across several arguments and parameter binding fails before that
+        # script can run a single line (no window, no transcript, no error anyone can see).
+        $DataToExport = @{
+            Template=$Template
+            VMName=$VMname
+            OSDAdapter0IPAddressList=$OSDAdapter0IPAddressList
+            OSDAdapter0Gateways=$OSDAdapter0Gateways
+            OSDAdapter0DNS1=$OSDAdapter0DNS1
+            OSDAdapter0DNS2=$OSDAdapter0DNS2
+            OSDAdapter0SubnetMaskPrefix=$OSDAdapter0SubnetMaskPrefix
+            VlanID=$(if($vlanid -ne ""){ $vlanid } else { '0' })
+            DomainAdmin=$DomainAdmin
+            AdminPassword=(Protect-VMDeployString $AdminPassword)
+            DomainAdminPassword=(Protect-VMDeployString $DomainAdminPassword)
+            WingetApps=$WingetApps
+            PSModules=$PSModules
+            PSModulesSkipPublisherCheck=$PSModulesSkipPublisherCheck
+            Downloads=$Downloads
+            ApplySecurityBaseline=$SecurityBaselineCheckBox.Checked
+        }
+        $DataToExport | Export-Clixml -Path "$env:TEMP\vmdeploy.xml" -ErrorAction Stop
 
-    if($DomainAdmin -eq ""){
-        $ScriptArguments = "-Template `'$Template`' -RootFolder NA -VMName $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -vlanid $vlanid -DataFromFile"
-    }
-    else{
-        $ScriptArguments = "-Template `'$Template`' -RootFolder NA -VMName $VMName -OSDAdapter0IPAddressList $OSDAdapter0IPAddressList -OSDAdapter0Gateways $OSDAdapter0Gateways -OSDAdapter0DNS1 $OSDAdapter0DNS1 -OSDAdapter0DNS2 $OSDAdapter0DNS2 -OSDAdapter0SubnetMaskPrefix $OSDAdapter0SubnetMaskPrefix -vlanid $vlanid -DomainAdmin $DomainAdmin -DataFromFile"
-    }
+        $ScriptToRun = "$RootFolder\VMDeploy.ps1"
 
-    $ScriptToRun = "$RootFolder\VMDeploy.ps1"
-    $Argument = "$ScriptToRun $ScriptArguments"
+        # $PSHOME can resolve to a PowerShell 7 App Execution Alias stub under WindowsApps instead of
+        # the real Windows PowerShell 5.1 install on some Windows 11 configurations - that stub is not
+        # a launchable file, so Start-Process fails immediately with "cannot find the file specified"
+        # before VMDeploy.ps1 ever starts (no error surfaced here previously; reproduced directly).
+        # Always prefer the real, non-aliasable path; fall back to $PSHOME only if that's ever missing.
+        $KnownPowerShellExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $PowerShellExe = if(Test-Path $KnownPowerShellExe){ $KnownPowerShellExe } else { Join-Path $PSHOME 'powershell.exe' }
+        if(-not (Test-Path $PowerShellExe)){
+            throw "Could not find powershell.exe (checked '$KnownPowerShellExe' and '$PSHOME')."
+        }
 
-    Start-Process PowerShell -ArgumentList "$Argument" -Verbose
+        # A single, explicitly quoted command-line STRING - not an array. Windows PowerShell 5.1's
+        # Start-Process joins an -ArgumentList array with spaces and does NOT quote the elements,
+        # which corrupts any value containing a space. The only thing interpolated here is the
+        # script's own path (derived from this script's location, never operator input), and it is
+        # quoted; every operator-supplied value travels in the hand-off file instead.
+        $Arguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -RootFolder NA -DataFromFile' -f $ScriptToRun
+
+        # Record exactly what is being launched, before launching it. If the deployment window ever
+        # disappears without explaining itself, this file shows whether the launch was even reached
+        # and with what.
+        $LaunchLog = "$env:ProgramData\VMDeploy\logs\VMDeploy-launch.log"
+        try {
+            New-Item -Path (Split-Path $LaunchLog -Parent) -ItemType Directory -Force -ErrorAction Stop | Out-Null
+            Add-Content -Path $LaunchLog -Value ("{0}  Launching: {1} {2}" -f (Get-Date -Format o), $PowerShellExe, $Arguments) -ErrorAction Stop
+        } catch { }
+
+        Start-Process -FilePath $PowerShellExe -ArgumentList $Arguments -ErrorAction Stop
+    }
+    catch {
+        [void][System.Windows.Forms.MessageBox]::Show(
+            "Could not start the build:`r`n`r`n$($_.Exception.Message)",
+            "VM Deploy", "OK", "Error")
+        Show-BuildError -Message "Build failed to start: $($_.Exception.Message)"
+        return
+    }
     $Form.close()
 }
 

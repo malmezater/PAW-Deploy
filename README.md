@@ -9,10 +9,11 @@ The solution is designed to be deployed via **Microsoft Intune** (as a Win32 app
   <br>
   <a href="https://github.com/malmezater/PAW-Deploy/commits/main" rel="nofollow"><img src="https://badgen.net/github/last-commit/malmezater/PAW-Deploy/main?cache=3600" alt="Last commit" style="max-width: 100%;"></a>
   <img src="https://badgen.net/badge/PowerShell/%E2%89%A5%205.1/blue" alt="PowerShell 5.1+" style="max-width: 100%;">
+  <br>
+  <img src="https://badgen.net/badge/installer/2.3.2/green" alt="Installer version 2.3.2" style="max-width: 100%;">
+  <img src="https://badgen.net/badge/VHDX%20tag/Win11-2609/cyan" alt="Default VHDX tag Win11-2609" style="max-width: 100%;">
+  <img src="https://badgen.net/badge/Windows%2011/Enterprise/blue" alt="Windows 11 Enterprise" style="max-width: 100%;">
 </p>
-
-- Installer version: **2.3.0**
-- Default VHDX tag: **Win11-25H2**
 
 ---
 
@@ -33,6 +34,7 @@ Once installed, the administrator launches **VM Deploy** from the Start menu to 
 | --- | --- |
 | **Security Audit** | PowerShell 7, Azure CLI, Python, the Azure audit modules (Maester, PSRule, WARA, ARI and more), and [Simple Azure Audit](https://github.com/malmezater/Simple-Azure-Audit) in `C:\PackTools`. |
 | **Azure DevOps** | PowerShell 7, Windows Terminal, Azure CLI, Bicep, Terraform, Git, VS Code, GitHub Desktop, Az, Microsoft Graph, PSScriptAnalyzer and Pester. |
+| **Intune Packaging** | The Microsoft Win32 Content Prep Tool (`IntuneWinAppUtil.exe`) in `C:\PackTools\IntuneWinAppUtil`, for building `.intunewin` packages. |
 
 Create your own from [docs/templates/Package-Template.xml](docs/templates/Package-Template.xml).
 
@@ -40,8 +42,8 @@ Create your own from [docs/templates/Package-Template.xml](docs/templates/Packag
 
 | Path | Purpose |
 | --- | --- |
-| [Install PAWDeploy/](Install%20PAWDeploy/) | The installer (run by Intune, SCCM, or manually) and the VMDeploy application it deploys. |
-| [Create Templade VHDX/](Create%20Templade%20VHDX/) | Scripts and guide for building the template VHDX that VMDeploy provisions guests from. |
+| [Install PAWDeploy/](Install%20PAWDeploy/) | The installer and uninstaller (run by Intune, SCCM, or manually) and the VMDeploy application it deploys. `Install-PAWDeploy.ps1`, `Uninstall-PAWDeploy.ps1` and `Settings.psm1` sit at the top; the four install stages live in [Stages/](Install%20PAWDeploy/Stages/), and the logo in [Branding/](Install%20PAWDeploy/Branding/). |
+| [Create Templade VHDX/](Create%20Templade%20VHDX/) | Step-by-step guide and scripts for building (and optionally shrinking) the Windows 11 Enterprise template VHDX that VMDeploy provisions guests from. |
 | [Default Intune Files/](Default%20Intune%20Files/) | Pre-packaged `.intunewin` apps for running/removing VMs, for use with the default configuration. |
 | [docs/](docs/) | Full documentation — see below. |
 

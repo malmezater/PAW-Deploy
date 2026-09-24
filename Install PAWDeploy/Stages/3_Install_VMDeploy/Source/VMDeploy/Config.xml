@@ -26,6 +26,27 @@
 <VMSwitch>Default Switch</VMSwitch>
 <AppProfile>PAW-Workgroup</AppProfile>
 <ModuleProfile>PAW-Workgroup</ModuleProfile>
+<ApplySecurityBaseline>True</ApplySecurityBaseline>
+</Template>
+<Template Name="Windows 11 - Domain Joined">
+<Active>True</Active>
+<VMGen>2</VMGen>
+<Memory>4096</Memory>
+<MemoryLow>2048</MemoryLow>
+<MemoryHigh>8192</MemoryHigh>
+<NoCPU>4</NoCPU>
+<DynamicMem>True</DynamicMem>
+<DiskMode>Attached</DiskMode>
+<VHDFile>C:\ProgramData\VMDeploy\Images\Windows11.vhdx</VHDFile>
+<TimeZoneName>W. Europe Standard Time</TimeZoneName>
+<DomainOrWorkGroup>Domain</DomainOrWorkGroup>
+<DNSDomain>corp.thefakedomain.com</DNSDomain>
+<MachineObjectOU>OU=PrivilegedAccessWorkstations,OU=Admin,DC=corp,DC=thefakedomain,DC=com</MachineObjectOU>
+<NameSuffix>DOM</NameSuffix>
+<VLanID>0</VLanID>
+<VMSwitch>Ethernet Cable</VMSwitch>
+<AppProfile>PAW-Workgroup</AppProfile>
+<ModuleProfile>PAW-Workgroup</ModuleProfile>
 </Template>
 <Template Name="Windows 11 - Intune OOBE">
 <Active>True</Active>

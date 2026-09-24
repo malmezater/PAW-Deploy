@@ -5,26 +5,56 @@ All deployment-wide settings live in [Install PAWDeploy/Settings.psm1](../../Ins
 ## Settings.psm1 — user-configurable
 
 ```powershell
+$Script:ProductName         = "Privileged Access Workstation"  # Shown in the VM Deploy windows
+$Script:BrandingLogo        = "PAWDeploy.png"   # Logo file in the Branding folder
 $Script:CompanyName         = "DeployIT"        # Used in registry path and ProgramData folder
 $Script:DownloadUrl         = "Download URL"    # Full SAS / HTTPS URL or UNC path to the VHDX
-$Script:VHDXVersion         = "Win11-25H2"      # Stored as a registry stamp
+$Script:VHDXVersion         = "Win11-2609"      # Stored as a registry stamp
 $Script:VHDXSha256          = ""                # Optional SHA256 - verifies the downloaded VHDX
 $Script:LocalInstall        = $true             # $true = local install (shortcuts created); $false = Intune/ConfigMgr
 $Script:VMSwitchName        = "Ethernet Cable"  # Hyper-V external switch (must match <VMSwitch> in Config.xml)
 $Script:VMSwitchAdapterName = ""                # Physical adapter for the switch. Empty = first adapter that is Up
 $Script:CreateHyperVUser    = $true             # Create the local Hypervuser account (interactive installs only)
+$Script:FirewallScopeSubnet = ""                # Optional CIDR - scope instead of disabling $FirewallRules
 ```
 
 | Setting | Description |
 | --- | --- |
+| `ProductName` | Name shown in the VM Deploy windows (title bar and banner). Cosmetic only — see [Branding](#branding). Default: `Privileged Access Workstation`. |
+| `BrandingLogo` | File name of the banner logo, located in `Install PAWDeploy\Branding\`. Cosmetic only — see [Branding](#branding). Default: `PAWDeploy.png`. |
 | `CompanyName` | Name used for the registry path and ProgramData folder. Default: `DeployIT`. |
 | `DownloadUrl` | Source of the Windows 11 VHDX. Azure Blob/Files, SMB/UNC, or HTTP/HTTPS — see [REQUIREMENTS.md](REQUIREMENTS.md#network-access). |
-| `VHDXVersion` | Version tag for the VHDX — change if you use a different image (e.g. `Win11-24H2`). Default: `Win11-25H2`. |
-| `LocalInstall` | `$true` = local/manual install (Start Menu shortcuts created). `$false` = Intune / ConfigMgr (no shortcuts). |
+| `VHDXVersion` | Version tag for the VHDX — change it whenever you publish a new image - the convention is `Win11-YYMM` of the build (e.g. `Win11-2609`). Default: `Win11-2609`. |
+| `LocalInstall` | `$true` = local/manual install (Start Menu shortcuts created). `$false` = Intune / ConfigMgr (no shortcuts; `C:\ProgramData\VMDeploy` is also restricted to SYSTEM only - see [Permissions](INSTALLATION.md#permissions-intune--configmgr-only)). |
 | `VHDXSha256` | Optional. When set, Stage 4 verifies the downloaded file with `Get-FileHash` and refuses to use it on mismatch. Get the value with `(Get-FileHash .\Windows11.vhdx).Hash`. |
 | `VMSwitchName` | Name of the external Hyper-V switch Stage 2a creates. Must match `<VMSwitch>` in `Config.xml`. Default: `Ethernet Cable`. |
 | `VMSwitchAdapterName` | Physical adapter to bind the switch to (e.g. `Ethernet`). Empty = first physical adapter that is Up; a warning is logged when several are Up. |
-| `CreateHyperVUser` | `$true` = create the local `Hypervuser` account in Stage 2c. It needs a password prompt, so it is skipped with a warning when the installer runs as SYSTEM. |
+| `CreateHyperVUser` | `$true` = also create the local `Hypervuser` account in Stage 2c, for operators who want a dedicated account to RDP into the host with. The signed-in user is always added to **Hyper-V Administrators** regardless of this setting - it is required to use VMs at all. `Hypervuser` needs a password prompt, so it is skipped with a warning when the installer runs as SYSTEM. |
+| `FirewallScopeSubnet` | Optional CIDR (e.g. `10.0.5.0/24`). When set, Stage 2b keeps `$FirewallRules` **enabled** and scopes them to this subnet instead of disabling them outright. Empty = disable outright (previous behavior). |
+
+## Branding
+
+The tool can be rebranded with two settings and one image file — no code changes.
+
+1. Drop your logo in [Install PAWDeploy/Branding/](../../Install%20PAWDeploy/Branding/) (a PNG; it is scaled to fit a 64×64 box, so a roughly square or wide logo works best).
+2. Set both values in `Settings.psm1`:
+
+```powershell
+$Script:ProductName  = "Contoso Secure Workstation"
+$Script:BrandingLogo = "contoso-logo.png"
+```
+
+3. Repackage and reinstall. Stage 3 copies the logo into `C:\ProgramData\VMDeploy\Images\` and writes the chosen name to `C:\ProgramData\VMDeploy\Branding.xml`, which the windows read at startup.
+
+| Where it shows | Result |
+| --- | --- |
+| VM Deploy title bar | `<ProductName> deployment tool` |
+| VM Deploy banner | `<ProductName> deployment` |
+| Banner logo (both windows) | `Images\<BrandingLogo>` |
+
+Branding is **cosmetic only**. It does not change install paths, the registry, or Intune detection rules — those follow `CompanyName` and `SoftwareName`. If `Branding.xml` is missing (for example on an older install), the windows fall back to the built-in defaults, so nothing breaks.
+
+Not currently branded: the Start Menu folder (`VMDeploy`), the shortcut names, and the shortcut icons in `Source\VMDeploy\Icons\`. Replace those `.ico` files directly if you need them changed.
 
 ## Settings.psm1 — derived values
 
@@ -32,7 +62,7 @@ Normally left as-is:
 
 | Variable | Value |
 | --- | --- |
-| `$ScriptVersion` | `2.3.0` |
+| `$ScriptVersion` | `2.3.2` |
 | `$SoftwareName` | `VMDeploy` |
 | `$DeployPath` | `C:\ProgramData\<CompanyName>` |
 | `$DeployITLogs` | `C:\ProgramData\<CompanyName>\Logs` |
@@ -60,11 +90,11 @@ Both are populated per template via two XML catalogs shipped next to `Config.xml
 
 | File | Purpose |
 | --- | --- |
-| [Apps.xml](../../Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Apps.xml) | Named profiles of winget application IDs. |
-| [Modules.xml](../../Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Modules.xml) | Named profiles of PowerShell module names. |
-| [Packages\\*.xml](../../Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Packages) | Reusable bundles of apps, modules and downloads, referenced from profiles (see [Packages](#packages)). Template: [Package-Template.xml](../templates/Package-Template.xml). |
+| [Apps.xml](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/Apps.xml) | Named profiles of winget application IDs. |
+| [Modules.xml](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/Modules.xml) | Named profiles of PowerShell module names. |
+| [Packages\\*.xml](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/Packages) | Reusable bundles of apps, modules and downloads, referenced from profiles (see [Packages](#packages)). Template: [Package-Template.xml](../templates/Package-Template.xml). |
 
-A template references a profile by name in [Config.xml](../../Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Config.xml):
+A template references a profile by name in [Config.xml](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/Config.xml):
 
 ```xml
 <Template Name="Windows 11 - WORKGROUP">
@@ -107,14 +137,15 @@ If a template has no `AppProfile` / `ModuleProfile`, the corresponding checklist
 ```
 
 - `Name` — the exact PSGallery module name as used by `Install-Module`.
-- Modules are installed with `Install-Module -Scope AllUsers -Force -AllowClobber` (always the latest version available on PSGallery).
+- Modules are installed with `Install-Module -Scope AllUsers -Force -AllowClobber` (latest version available on PSGallery, unless `Version` pins one).
 - `SkipPublisherCheck="True"` (optional) — adds `-SkipPublisherCheck`. Only use it for modules that clash with an inbox signed module, such as **Pester 5** next to Windows' built-in Pester 3.4.
+- `Version="1.2.3"` (optional) — pins `-RequiredVersion` instead of always installing latest. PSGallery has no publisher/allow-list enforcement of its own, so pinning is the recommended way to avoid an unreviewed new release (or a compromised/typosquatted package) landing on a PAW guest.
 
 ### Packages
 
 > **New package?** Start from the commented template [docs/templates/Package-Template.xml](../templates/Package-Template.xml). It describes every element and attribute.
 
-A package is a separate XML file in `Packages\` that bundles the apps, modules **and** downloads for one use case, e.g. [Packages\SecurityAudit.xml](../../Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Packages/SecurityAudit.xml) for the Simple-Azure-Audit toolset, or [Packages\AzureDevOps.xml](../../Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/Packages/AzureDevOps.xml) for Azure, Bicep/Terraform and Git work:
+A package is a separate XML file in `Packages\` that bundles the apps, modules **and** downloads for one use case, e.g. [Packages\SecurityAudit.xml](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/Packages/SecurityAudit.xml) for the Simple-Azure-Audit toolset, [Packages\AzureDevOps.xml](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/Packages/AzureDevOps.xml) for Azure, Bicep/Terraform and Git work, or [Packages\IntunePackaging.xml](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/Packages/IntunePackaging.xml), which only downloads the Microsoft Win32 Content Prep Tool (`IntuneWinAppUtil.exe`) to `C:\PackTools\IntuneWinAppUtil`:
 
 ```xml
 <Package Name="SecurityAudit" DisplayName="Security Audit">
@@ -153,7 +184,7 @@ Reference the package by file name from a profile in `Apps.xml` and/or `Modules.
 
 ## How guest provisioning applies this
 
-After the VM has booted and BitLocker has finished encrypting, [VMDeploy.ps1](../../Install%20PAWDeploy/3_Install_VMDeploy/Source/VMDeploy/VMDeploy.ps1) connects to the guest via **PowerShell Direct** (`Invoke-Command -VMName`) as `\Administrator` and:
+After the VM has booted and BitLocker has finished encrypting, [VMDeploy.ps1](../../Install%20PAWDeploy/Stages/3_Install_VMDeploy/Source/VMDeploy/VMDeploy.ps1) connects to the guest via **PowerShell Direct** (`Invoke-Command -VMName`) as `\Administrator` and:
 
 1. **Registers winget** — `Add-AppxPackage -Register -DisableDevelopmentMode`, since the App Execution Alias is only created on first interactive logon, which a freshly deployed VM has never had.
 2. **Installs winget applications** — each in its own `Invoke-Command` call, using `winget.exe --scope machine --exact --silent`. If an installer restarts the Windows Installer service mid-install and kills the Hyper-V socket, the script reconnects via `Wait-VIAVMHavePSDirect` and retries automatically. Packages that only support user scope are retried without `--scope machine`.

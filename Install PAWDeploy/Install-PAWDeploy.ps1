@@ -47,27 +47,27 @@ if (-not $DownloadUrl -or $DownloadUrl -match '^\W*Download\s*URL(\s*Here)?$' -o
 
 $Stages = @(
     @{ Id = "1";  Name = "Install Hyper-V features"
-       Script = "1_Install-Features_for_PAW\Install-Features_for_PAW.ps1"
+       Script = "Stages\1_Install-Features_for_PAW\Install-Features_for_PAW.ps1"
        IsDone = { Test-DeployStamp -Name $HyperVFeatures -Value "Enabled" } }
 
     @{ Id = "2a"; Name = "Configure PAW network"
-       Script = "2_Install_VMDeploy-configuration\Configure-PAWNetwork.ps1"
+       Script = "Stages\2_Install_VMDeploy-configuration\Configure-PAWNetwork.ps1"
        IsDone = { Test-DeployStamp -Name "PawNetwork" -Value "True" } }
 
     @{ Id = "2b"; Name = "Set firewall rules"
-       Script = "2_Install_VMDeploy-configuration\Set-FirewallRules.ps1"
+       Script = "Stages\2_Install_VMDeploy-configuration\Set-FirewallRules.ps1"
        IsDone = { Test-DeployStamp -Name $FirewallRules } }
 
     @{ Id = "2c"; Name = "Add Hyper-V administrators"
-       Script = "2_Install_VMDeploy-configuration\Add-HyperVAdmin.ps1"
+       Script = "Stages\2_Install_VMDeploy-configuration\Add-HyperVAdmin.ps1"
        IsDone = { Test-DeployStamp -Name "HyperV-Admins" -Value "True" } }
 
     @{ Id = "3";  Name = "Install VMDeploy $ScriptVersion"
-       Script = "3_Install_VMDeploy\Install-VMDeploy.ps1"
+       Script = "Stages\3_Install_VMDeploy\Install-VMDeploy.ps1"
        IsDone = { Test-DeployStamp -Name "VMDeployVersion" -Value $ScriptVersion } }
 
     @{ Id = "4";  Name = "Download Windows VHDX $VHDXVersion"
-       Script = "4_Download_Windows_VHDX\download-vhdx.ps1"
+       Script = "Stages\4_Download_Windows_VHDX\download-vhdx.ps1"
        IsDone = { Test-DeployStamp -Name "WindowsVHDX" -Value $VHDXVersion } }
 )
 
@@ -119,6 +119,39 @@ if ($incomplete.Count -gt 0) {
 if (-not (Test-Path $VMDeployPath)) {
     Write-Warning "VMDeploy directory not found: $VMDeployPath"
     exit (Stop-DeployStage $ExitFailure)
+}
+
+# -------  Restrict VMDeploy folder to SYSTEM (Intune / ConfigMgr only)  -------
+# When LocalInstall = $false, nobody signs in and runs VMDeploy interactively as themselves - the
+# Intune Management Extension (or ConfigMgr) drives everything as SYSTEM, including the "Run
+# VMDeploy" / "Remove VM" helper apps. Neither local Administrators nor ordinary Users (inherited
+# read access from C:\ProgramData's own default ACL) has a legitimate need to read or write VM
+# configs, virtual disks or the downloaded VHDX here, so both are removed to reduce the attack
+# surface against deployed VMs; SYSTEM keeps full control. Done last, after every stage has finished
+# writing into this folder - locking it earlier would break a stage's own writes unless it also runs
+# as SYSTEM.
+#
+# /inheritance:d converts inherited ACEs to explicit ones first (a safe no-op on the effective
+# permissions), then /remove:g drops just Administrators/Users/Authenticated Users by well-known SID
+# (locale-independent). Ownership is deliberately left alone - changing it needs
+# SeTakeOwnershipPrivilege to be explicitly enabled, which is unreliable for icacls /setowner even
+# from an elevated admin token, and risks leaving the folder in a half-locked, inaccessible state if
+# it fails partway. This is defense in depth, not a hard boundary either way: a local Administrator
+# can always run takeown.exe on their own machine to reclaim access, so it stops casual/automated
+# access rather than a deliberate, fully-privileged local admin.
+if (-not $LocalInstall) {
+    Write-Host "LocalInstall = false - restricting $VMDeployPath to SYSTEM only."
+    try {
+        & icacls.exe "$VMDeployPath" /inheritance:d /T /C /Q | Out-Null
+        & icacls.exe "$VMDeployPath" /remove:g "*S-1-5-32-544" "*S-1-5-32-545" "*S-1-5-11" /T /C /Q | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "icacls exited with code $LASTEXITCODE" }
+        Write-Host "Permissions restricted: only SYSTEM can access $VMDeployPath."
+        Write-DeployEvent -Message "Restricted $VMDeployPath to SYSTEM only (LocalInstall = false)." -EventId 1010
+    }
+    catch {
+        Write-Warning "Could not restrict permissions on $VMDeployPath`: $($_.Exception.Message)"
+        Write-DeployEvent -Message "Could not restrict permissions on $VMDeployPath`: $($_.Exception.Message)" -EntryType Warning -EventId 1011
+    }
 }
 
 Set-ItemProperty -Path $ApplicationKeyPath -Name "(Default)" -Value "True" -Force

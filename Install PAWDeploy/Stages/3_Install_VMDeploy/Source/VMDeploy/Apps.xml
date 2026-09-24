@@ -10,5 +10,6 @@
     <App Id="Microsoft.Sysinternals.Suite"  DisplayName="Sysinternals Suite"   Default="False"  Description="Sysinternals troubleshooting tools (Process Explorer, Autoruns, PsExec and more)." />
     <Package Name="SecurityAudit"                                              Default="False" />
     <Package Name="AzureDevOps"                                                Default="False" />
+    <Package Name="IntunePackaging"                                            Default="False" />
   </Profile>
 </AppProfiles>

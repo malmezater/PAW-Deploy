@@ -2,7 +2,7 @@
 ##*=============================================
 ##* VMDeploy - Settings Module
 ##* Imported by the orchestrator and by every stage script:
-##*   Import-Module "$PSScriptRoot\..\Settings.psm1" -Force
+##*   Import-Module "$PSScriptRoot\..\..\Settings.psm1" -Force   (from a script under Stages\)
 ##*=============================================
 
 #region -------  USER-CONFIGURABLE ATTRIBUTES  -------
@@ -10,9 +10,19 @@
 ##* Edit these values before deploying
 ##*=============================================
 
+#  -------  BRANDING  -------
+#  What the operator sees in the VM Deploy windows. Change these two to rebrand the tool.
+#  ProductName  - shown in the window title and the banner, e.g. "Contoso Secure Workstation".
+#  BrandingLogo - file name of the banner logo, placed in the "Branding" folder next to this file.
+#                 A wide-ish PNG works best; it is scaled to fit a 64x64 box.
+#  These are cosmetic only - they do not affect install paths, the registry or Intune detection
+#  (those follow CompanyName / SoftwareName below).
+$Script:ProductName    = "Privileged Access Workstation"
+$Script:BrandingLogo   = "PAWDeploy.png"
+
 $Script:CompanyName    = "DeployIT"            # Name of the company deploying the software / Default name is "DeployIT"
-$Script:DownloadUrl    = "\\DownloadURLHere"   # Full URL / UNC path to the VHDX file
-$Script:VHDXVersion    = "Win11-25H2"          # Version tag for the VHDX file
+$Script:DownloadUrl    = "https://DownloadURLHere"   # Full URL / UNC path to the VHDX file
+$Script:VHDXVersion    = "Win11-2609"          # Version tag for the VHDX file
 $Script:VHDXSha256     = ""                    # Optional SHA256 of the VHDX. When set, the download is verified before it is used.
 
 # Set to $true for a direct/local install (Start Menu shortcuts will be created).
@@ -23,7 +33,15 @@ $Script:LocalInstall   = $true
 $Script:VMSwitchName        = "Ethernet Cable"
 $Script:VMSwitchAdapterName = ""               # Physical adapter to bind to. Empty = first physical adapter that is Up.
 
-# Create the local "Hypervuser" account (member of Hyper-V Administrators).
+# Optional: instead of disabling $FirewallRules outright (opening WMI/RPC and enhanced-session RDP
+# listeners on the PAW host to the whole network), scope them to a trusted management subnet, e.g.
+# "10.0.5.0/24". Leave empty to keep the current disable-outright behavior.
+$Script:FirewallScopeSubnet = ""
+
+# Create the local "Hypervuser" account (member of Hyper-V Administrators), for operators who want
+# a dedicated account to RDP into the host with rather than using their own sign-in. The signed-in
+# user is always added to Hyper-V Administrators regardless of this setting - it is required to use
+# VMs at all - this only controls the extra "Hypervuser" account.
 # The password is prompted for, so the account is only created in an interactive session.
 $Script:CreateHyperVUser = $true
 
@@ -35,8 +53,11 @@ $Script:CreateHyperVUser = $true
 ##* you are doing.
 ##*=============================================
 
-$Script:ScriptVersion = "2.3.0"
+$Script:ScriptVersion = "2.3.2"
 $Script:SoftwareName  = "VMDeploy"
+
+# Where the operator drops a replacement logo (see BrandingLogo above).
+$Script:BrandingPath  = "$PSScriptRoot\Branding"
 
 # Paths
 $Script:DeployPath        = "$env:ProgramData\$Script:CompanyName"
@@ -77,6 +98,53 @@ $Script:ExitRebootRequired = 1641
 
 #region -------  SHARED HELPER FUNCTIONS  -------
 
+# Event Log entries are readable without local admin rights - unlike the transcript logs under
+# $DeployITLogs / $VMDeployPath\logs, which are SYSTEM-only on Intune/ConfigMgr installs (see
+# docs/setup/INSTALLATION.md#permissions-intune--configmgr-only). A custom log created this way
+# defaults to granting read+write to "Interactive Users" (any interactively logged-on account, admin
+# or not), so Event Viewer > Applications and Services Logs > VMDeploy > Operational (or
+# `Get-WinEvent -LogName "VMDeploy/Operational"`) works without local admin or takeown.exe.
+$Script:EventLogName = "VMDeploy/Operational"
+$Script:EventLogSource = "VMDeploy-Setup"
+
+function Initialize-DeployEventLog {
+    <#
+    .SYNOPSIS
+        Registers the install/uninstall event source if it doesn't exist yet. Safe to call every
+        time - a no-op once it exists, which it normally will after the first run.
+    #>
+    [CmdletBinding()]
+    param()
+    if ([System.Diagnostics.EventLog]::SourceExists($Script:EventLogSource)) { return }
+    try {
+        New-EventLog -LogName $Script:EventLogName -Source $Script:EventLogSource -ErrorAction Stop
+    }
+    catch {
+        Write-Warning "Could not create event log source '$($Script:EventLogSource)': $($_.Exception.Message)"
+    }
+}
+
+function Write-DeployEvent {
+    <#
+    .SYNOPSIS
+        Writes one entry to the VMDeploy/Operational event log. Never throws - a logging failure
+        must not break an install or uninstall.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [ValidateSet('Information', 'Warning', 'Error')][string]$EntryType = 'Information',
+        [int]$EventId = 1000
+    )
+    Initialize-DeployEventLog
+    try {
+        Write-EventLog -LogName $Script:EventLogName -Source $Script:EventLogSource -EntryType $EntryType -EventId $EventId -Message $Message -ErrorAction Stop
+    }
+    catch {
+        # Best-effort only.
+    }
+}
+
 function Initialize-DeployEnvironment {
     <#
     .SYNOPSIS
@@ -91,6 +159,7 @@ function Initialize-DeployEnvironment {
     if (-not (Test-Path $Script:RegistrySoftwareName)) {
         New-Item -Path $Script:RegistrySoftwareName -Force | Out-Null
     }
+    Initialize-DeployEventLog
 }
 
 function Start-DeployStage {
@@ -113,6 +182,9 @@ function Start-DeployStage {
     Write-Host "========================================================"
     Write-Host "  $Title"
     Write-Host "========================================================"
+
+    $Script:CurrentStageName = $Name
+    Write-DeployEvent -Message "Starting: $Title" -EventId 1000
 }
 
 function Stop-DeployStage {
@@ -123,14 +195,31 @@ function Stop-DeployStage {
     [CmdletBinding()]
     param([int]$ExitCode = 0)
 
+    $entryType = if ($ExitCode -eq $Script:ExitSuccess) { 'Information' } else { 'Warning' }
+    Write-DeployEvent -Message "$($Script:CurrentStageName) finished with exit code $ExitCode." -EntryType $entryType -EventId 1001
+
     try { Stop-Transcript | Out-Null } catch { }
     return $ExitCode
 }
 
 function Get-DeployStamp {
+    <#
+    .SYNOPSIS
+        Returns the stamp's value, or $null when it doesn't exist yet.
+    .NOTES
+        Get-ItemPropertyValue throws a *terminating* error for a missing property -
+        -ErrorAction SilentlyContinue only suppresses non-terminating errors, so it would still
+        print "Property ... does not exist" in red on every not-yet-stamped check (i.e. on every
+        first-time-through-a-stage check during a fresh install). try/catch actually suppresses it.
+    #>
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Name)
-    Get-ItemPropertyValue -Path $Script:ApplicationKeyPath -Name $Name -ErrorAction SilentlyContinue
+    try {
+        Get-ItemPropertyValue -Path $Script:ApplicationKeyPath -Name $Name -ErrorAction Stop
+    }
+    catch {
+        $null
+    }
 }
 
 function Set-DeployStamp {
@@ -181,9 +270,11 @@ function Test-InteractiveSession {
 #endregion
 
 Export-ModuleMember -Function Initialize-DeployEnvironment, Start-DeployStage, Stop-DeployStage, `
-    Get-DeployStamp, Set-DeployStamp, Test-DeployStamp, Test-InteractiveSession -Variable `
+    Get-DeployStamp, Set-DeployStamp, Test-DeployStamp, Test-InteractiveSession, `
+    Initialize-DeployEventLog, Write-DeployEvent -Variable `
     CompanyName, ScriptVersion, SoftwareName, DownloadUrl, VHDXVersion, VHDXSha256, `
-    LocalInstall, VMSwitchName, VMSwitchAdapterName, CreateHyperVUser, `
+    ProductName, BrandingLogo, BrandingPath, `
+    LocalInstall, VMSwitchName, VMSwitchAdapterName, CreateHyperVUser, FirewallScopeSubnet, `
     DeployPath, DeployITLogs, VMDeployPath, VHDXDownloadPath, `
     RegistryPath, RegistrySoftwareName, ApplicationKeyPath, `
     HyperVFeatures, FirewallRules, ExitSuccess, ExitFailure, ExitRebootRequired

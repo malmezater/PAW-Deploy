@@ -41,12 +41,16 @@
        Description         Optional. One line shown in the Details box.
        SkipPublisherCheck  Optional, "True" adds -SkipPublisherCheck. Only for modules that clash with an
                            inbox signed module, e.g. Pester 5 next to Windows' built-in Pester 3.4.
+       Version             Optional. Pins -RequiredVersion instead of always installing latest -
+                           recommended for modules used in supply-chain-sensitive tooling (PSGallery
+                           has no publisher/allow-list enforcement otherwise).
 
        Installed inside the VM with: Install-Module -Name <Name> -Scope AllUsers -Force -AllowClobber
-       (always the latest version).
+       (latest version, unless Version pins one).
   -->
   <Module Name="Az"      DisplayName="Azure Az"  Description="Azure PowerShell - cmdlets for managing Azure resources." />
   <Module Name="Pester"  DisplayName="Pester"    SkipPublisherCheck="True"  Description="PowerShell test framework." />
+  <Module Name="PSScriptAnalyzer"  DisplayName="PSScriptAnalyzer"  Version="1.21.0"  Description="Pinned example - installs exactly this version." />
 
   <!-- ─── Downloads (optional) ────────────────────────────────────────────────
        Name         Name shown in VM Deploy and in the deploy log.
