@@ -54,7 +54,8 @@ Create your own from [docs/templates/Package-Template.xml](docs/templates/Packag
 | [docs/setup/](docs/setup/) | **Setup guide** — requirements, preparation, configuration reference, and installation (manual, Intune, SCCM). |
 | [docs/templates/](docs/templates/) | Template for new VM Deploy packages. |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes per version. |
-| [docs/security/PAW-CONCEPT.md](docs/security/PAW-CONCEPT.md) | The PAW security model this project implements, and why it matters. |
+| [docs/security/](docs/security/) | **Security** — the PAW access model with diagrams, and where PAW-Deploy fits in it. |
+| [docs/security/PAW-CONCEPT.md](docs/security/PAW-CONCEPT.md) | The PAW security model, where PAW-Deploy fits in it, and why it matters. |
 | [docs/security/SECURITY-REVIEW.md](docs/security/SECURITY-REVIEW.md) | Source-code security review of the installer and VMDeploy tooling. |
 
 Start with [docs/setup/README.md](docs/setup/README.md) for a step-by-step walkthrough.
