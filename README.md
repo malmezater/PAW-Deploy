@@ -19,13 +19,13 @@ The solution is designed to be deployed via **Microsoft Intune** (as a Win32 app
 
 ## What it does
 
-A PAW (Privileged Access Workstation) is a hardened endpoint used by administrators to perform sensitive tasks in isolation from a user's day-to-day workstation. This project turns a standard Windows 11 device into a PAW host by:
+A PAW (Privileged Access Workstation) is a hardened endpoint used by administrators to perform sensitive tasks in isolation from a user's day-to-day workstation. This project turns a standard Windows 11 device into a host for PAW VMs by:
 
 1. Enabling Hyper-V and related Windows Optional Features.
 2. Creating a Hyper-V external switch bound to the configured (or first active) physical NIC.
-3. Configuring the firewall rules required by Hyper-V remoting.
-4. Adding the signed-in user to the **Hyper-V Administrators** group and, in interactive installs, creating a local `Hypervuser` service account.
-5. Deploying the **VMDeploy** application (PowerShell + UI shortcuts) to `C:\ProgramData\VMDeploy`.
+3. Disabling the Hyper-V remote-management firewall rules on the host (or scoping them to a trusted subnet).
+4. Adding the signed-in user to the **Hyper-V Administrators** group and, optionally in interactive installs, creating a separate local `Hypervuser` account.
+5. Deploying the **VMDeploy** application to `C:\ProgramData\VMDeploy` (restricted to SYSTEM when installed through Intune or ConfigMgr).
 6. Downloading a pre-built Windows 11 VHDX template.
 
 Once installed, the administrator launches **VM Deploy** from the Start menu to spin up Windows (or Linux/Kali) guest VMs on demand. VM Deploy installs the selected winget applications, PowerShell modules and **packages** into the new VM, for example:
@@ -37,6 +37,27 @@ Once installed, the administrator launches **VM Deploy** from the Start menu to 
 | **Intune Packaging** | The Microsoft Win32 Content Prep Tool (`IntuneWinAppUtil.exe`) in `C:\PackTools\IntuneWinAppUtil`, for building `.intunewin` packages. |
 
 Create your own from [docs/templates/Package-Template.xml](docs/templates/Package-Template.xml).
+
+## Security model
+
+**PAW-Deploy does not implement tiering, and it is not a complete PAW on its own.** It delivers the *trusted access device*, one link in the chain:
+
+```text
+Everyday device  ──►  Trusted access device  ──►  PAW for the right tier  ──►  Target
+                      (PAW-Deploy VM, managed
+                       by the customer)
+```
+
+The tiering itself is enforced by separate admin accounts per tier, Conditional Access, PIM and network segmentation. What PAW-Deploy adds:
+
+- **Admin credentials stay off the host.** Privileged accounts are only used inside the VMs, so a compromised laptop has no admin accounts on it to steal.
+- **One VM per customer or environment.** Hyper-V isolates each environment from the host and from each other. Switching customer means switching VM, not browser tab.
+- **Customer-managed VMs.** The Intune OOBE and Domain Joined templates enroll the VM in the customer's Entra ID/Intune or AD, so the customer's policies decide what is compliant. The Workgroup template is for quick test and development machines and is **not** a PAW.
+- **Known-good and disposable.** Every VM starts from the same versioned golden image, and Destroy + Deploy gives a clean machine in minutes.
+- **The user no longer needs to be local admin.** In Intune mode the Run VMDeploy / Remove VM apps run as SYSTEM from Company Portal, and `C:\ProgramData\VMDeploy` is restricted to SYSTEM, so a standard user cannot reach the VM disks or the golden image at all. Anyone who still holds admin rights can take the permissions back with `takeown`, which is a deliberate, detectable action. The user stays in Hyper-V Administrators to use their VMs.
+- **Guest protections.** vTPM with BitLocker, and deployment credentials are removed from the guest once setup is done.
+
+**Residual risk:** a VM can in theory be observed by its host (screen, keyboard, memory). That is why the model also relies on a hardened, compliant host, FIDO2 and short, just-in-time sessions. Read [docs/security/PAW-CONCEPT.md](docs/security/PAW-CONCEPT.md) for the full reasoning, alternatives (Windows 365 Cloud PC, dedicated Tier 0 hardware, jump hosts/AVD, GSA) and limits, and [docs/security/SECURITY-REVIEW.md](docs/security/SECURITY-REVIEW.md) for the open findings.
 
 ## Repository structure
 

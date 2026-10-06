@@ -14,14 +14,14 @@ Install-PAWDeploy.ps1   (Intune entry point / orchestrator)
         │
         ├── Stage 1 : Install-Features_for_PAW.ps1   → enables Hyper-V features
         ├── Stage 2a: Configure-PAWNetwork.ps1       → creates "Ethernet Cable" VMSwitch
-        ├── Stage 2b: Set-FirewallRules.ps1          → disables blocking firewall rules
-        ├── Stage 2c: Add-HyperVAdmin.ps1            → group membership + service account
-        ├── Stage 3 : Install-VMDeploy.ps1           → Robocopy app + Start menu shortcuts
+        ├── Stage 2b: Set-FirewallRules.ps1          → disables (or scopes) Hyper-V remote-management rules
+        ├── Stage 2c: Add-HyperVAdmin.ps1            → Hyper-V Administrators + optional Hypervuser
+        ├── Stage 3 : Install-VMDeploy.ps1           → Robocopy app (+ Start menu shortcuts if LocalInstall)
         └── Stage 4 : download-vhdx.ps1              → downloads Windows 11 VHDX (Azure / SMB / HTTP)
 ```
 
 Each stage imports the shared [Settings.psm1](../../Install%20PAWDeploy/Settings.psm1) module and writes a "stamp" to the registry on success, so the orchestrator can skip already-completed stages on re-run.
 
-Once installed, launch **VM Deploy** from the Start menu to provision Windows (or Linux/Kali) guest VMs on demand from the template VHDX. Pick a template, then choose packages, applications and PowerShell modules to install in the VM.
+Once installed, launch **VM Deploy** from the Start menu (local install) or from Company Portal through the Run VMDeploy app (Intune install, no local admin needed) to provision Windows (or Linux/Kali) guest VMs on demand from the template VHDX. Pick a template, then choose packages, applications and PowerShell modules to install in the VM.
 
 See the [root README](../../README.md) for the project summary, and [docs/security/](../security/) for the security model and review this design should be held to.

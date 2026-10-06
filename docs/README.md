@@ -35,6 +35,6 @@ See [CHANGELOG.md](../CHANGELOG.md) for what changed in each version.
 
 ### PAW access model
 
-**What matters is how a device is managed, not what kind of device it is.** Privileged access always starts from a trusted access device that the customer manages. PAW-Deploy is one way to deliver that device: a Hyper-V VM on the consultant's laptop, enrolled in the customer's Entra ID and Intune. See [security/README.md](security/README.md) for the full model and all diagrams.
+**What matters is how a device is managed, not what kind of device it is.** Privileged access always starts from a trusted access device that the customer manages. PAW-Deploy is one way to deliver that device: a Hyper-V VM on the consultant's laptop, enrolled in the customer's Entra ID and Intune. PAW-Deploy is not the tiering itself, which is enforced by separate accounts, Conditional Access, PIM and network segmentation. See [security/README.md](security/README.md) for the full model and all diagrams.
 
 ![PAW overview – chain of trust and one PAW per tier](security/diagrams/00-overview.png)

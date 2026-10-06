@@ -7,7 +7,7 @@ Prerequisites for both the PAW host (running the installer) and the guest VMs it
 | Requirement | Detail |
 | --- | --- |
 | OS | Windows 11 (Pro/Enterprise), with virtualization enabled in firmware (Intel VT-x/AMD-V + SLAT). |
-| Rights | Local administrator. Intune runs the installer as **SYSTEM**. |
+| Rights | Installing needs local administrator; Intune runs the installer as **SYSTEM**. In Intune / ConfigMgr mode (`LocalInstall = $false`) the user does **not** need to be a local administrator to create or remove VMs - the Run VMDeploy / Remove VM apps run as SYSTEM. |
 | PowerShell | 5.1 or later (`#Requires -Version 5.1` in every script). |
 | Network adapter | An active physical NIC, used to bind the Hyper-V external switch ("Ethernet Cable"). |
 | Free disk space | Enough for the Hyper-V role, the downloaded template VHDX, and every guest VM's differencing/checkpoint disks. |

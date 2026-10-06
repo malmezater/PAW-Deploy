@@ -28,7 +28,9 @@ The trusted access device can be delivered in several ways, and PAW-Deploy is on
 
 Behind the trusted device the model is the same in every alternative. There is one PAW per tier (Cloud, Tier 0, Tier 1, Tier 2), each an AVD host pool with its own admin account. Roles are activated just-in-time through PIM, and Azure Firewall rules deny cross-tier traffic.
 
-> **PAW-Deploy builds the trusted access device, not the tier PAWs.** The tier PAWs, Conditional Access policies, PIM and firewall rules belong to the customer's environment and are outside the scope of this repository.
+> **PAW-Deploy is not the tiering.** In the reference design it builds the trusted access device, not the tier PAWs. The tiering itself, with separate accounts per tier, Conditional Access policies, PIM and firewall rules, belongs to the customer's environment and is outside the scope of this repository. In simpler setups a locked-down, customer-managed PAW-Deploy VM can itself serve as the Tier 1 or Tier 2 PAW. See [PAW-CONCEPT.md](PAW-CONCEPT.md#the-chain-of-trust) for an example per tier.
+
+When installed through Intune, PAW-Deploy also removes the need for the user to be a local administrator on the host: VMs are created and removed through Company Portal apps that run as SYSTEM, and the folder with the VM disks is restricted to SYSTEM. See [PAW-CONCEPT.md](PAW-CONCEPT.md#reducing-the-need-for-local-admin-on-the-host).
 
 ## Diagrams
 
